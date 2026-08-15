@@ -1,0 +1,96 @@
+# graphify ignore for Excalidraw monorepo
+# Keep graph focused on library + app AST; exclude noise / docs / assets.
+
+# VCS / agent / editor / CI tooling
+.git/
+.github/
+.husky/
+.codesandbox/
+.claude/
+.agents/
+.cursor/
+.codex/
+.idea/
+.vscode/
+.worktrees/
+.DS_Store
+
+# graphify outputs and local tool state
+graphify-out/
+.graphify*/
+.graphify_*
+
+# Dependencies / package stores (also auto-skipped; listed for clarity)
+node_modules/
+**/node_modules/
+.yarn/
+.pnp.*
+
+# Build / test / cache artifacts
+dist/
+**/dist/
+dev-dist/
+build/
+**/build/
+coverage/
+**/coverage/
+.vite/
+**/.vite/
+*.tsbuildinfo
+*.log
+*.tgz
+*.tmp
+tmp/
+tmp-*/
+
+# Generated types beside packages
+packages/excalidraw/types/
+
+# Lockfiles (not useful for AST)
+yarn.lock
+package-lock.json
+pnpm-lock.yaml
+
+# Examples are integration samples, not core architecture
+examples/
+
+# Firebase / deploy scaffolding
+firebase-project/
+firebase/
+
+# Static assets, fonts, screenshots
+public/
+**/fonts/
+*.woff
+*.woff2
+*.ttf
+*.otf
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.ico
+*.svg
+*.mp3
+*.mp4
+*.mov
+*.wav
+
+# i18n catalogs (large JSON, low architectural signal)
+**/locales/
+**/locales/**/*.json
+
+# Tests, snapshots, fixtures
+**/tests/
+**/__tests__/
+**/__snapshots__/
+**/fixtures/
+**/*.test.ts
+**/*.test.tsx
+**/*.test.js
+**/*.test.jsx
+**/*.spec.ts
+**/*.spec.tsx
+**/*.snap
+setupTests.ts
