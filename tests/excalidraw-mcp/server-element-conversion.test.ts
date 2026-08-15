@@ -168,6 +168,46 @@ describe("convertElementsForStorage", () => {
     expect(text.height).toBeGreaterThan(0);
     expect(text.fontFamily).toBe(11);
     expect(text.lineHeight).toBe(1.2);
+    expect(text.textAlign).toBe("center");
+  });
+
+  it("forces explicit text and label alignment to center", () => {
+    const elements = convertElementsForStorage([
+      {
+        id: "title",
+        type: "text",
+        x: 0,
+        y: 0,
+        text: "Title",
+        fontSize: 20,
+        textAlign: "right",
+        verticalAlign: "bottom",
+      },
+      {
+        id: "card",
+        type: "rectangle",
+        x: 0,
+        y: 60,
+        width: 160,
+        height: 80,
+        label: {
+          text: "Card",
+          textAlign: "left",
+          verticalAlign: "top",
+        },
+      },
+    ]);
+    const title = elements.find((element) => element.id === "title")!;
+    const label = elements.find((element) => element.containerId === "card")!;
+
+    expect(title).toMatchObject({
+      textAlign: "center",
+      verticalAlign: "bottom",
+    });
+    expect(label).toMatchObject({
+      textAlign: "center",
+      verticalAlign: "top",
+    });
   });
 
   it("applies Maple, thin, and soft defaults", () => {

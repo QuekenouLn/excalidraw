@@ -129,4 +129,31 @@ describe("convertRawElements", () => {
 
     expect(convertRawElements(nativeElements)).toEqual(nativeElements);
   });
+
+  it("centers new text but preserves restored text alignment", () => {
+    const nativeText = {
+      type: "text",
+      id: "title",
+      x: 0,
+      y: 0,
+      width: 120,
+      height: 24,
+      text: "Title",
+      fontSize: 20,
+      fontFamily: 11,
+      lineHeight: 1.2,
+      textAlign: "right",
+      verticalAlign: "bottom",
+      version: 2,
+      versionNonce: 3,
+    };
+
+    expect(convertRawElements([nativeText])[0]).toMatchObject({
+      textAlign: "center",
+      verticalAlign: "bottom",
+    });
+    expect(
+      convertRawElements([nativeText], { centerNewText: false })[0],
+    ).toEqual(nativeText);
+  });
 });
