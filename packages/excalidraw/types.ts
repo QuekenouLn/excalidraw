@@ -459,6 +459,14 @@ export interface AppState {
     | { name: "ttd"; tab: "text-to-diagram" | "mermaid" }
     | { name: "commandPalette" }
     | { name: "settings" }
+    | {
+        name: "markdownFrameEditor";
+        elementId: ExcalidrawElement["id"];
+        markdown: string;
+        contentScale: number;
+        baseVersion: number;
+        baseVersionNonce: number;
+      }
     | { name: "elementLinkSelector"; sourceElementId: ExcalidrawElement["id"] }
     | { name: "charts"; data: Spreadsheet; rawText: string };
   /**
@@ -1114,6 +1122,7 @@ export type AppClassProperties = {
   setOpenDialog: App["setOpenDialog"];
   insertEmbeddableElement: App["insertEmbeddableElement"];
   onMagicframeToolSelect: App["onMagicframeToolSelect"];
+  saveMarkdownFrame: App["saveMarkdownFrame"];
   getName: App["getName"];
   dismissLinearEditor: App["dismissLinearEditor"];
   flowchart: App["flowchart"];

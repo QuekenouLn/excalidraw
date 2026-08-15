@@ -420,8 +420,10 @@ import { textWysiwyg } from "../wysiwyg/textWysiwyg";
 import { isOverScrollBars } from "../scene/scrollbars";
 import { isMaybeMermaidDefinition } from "../mermaid";
 import {
-  createMarkdownFrameHtml,
+  createMarkdownFrameCustomData,
   DEFAULT_MARKDOWN,
+  getMarkdownFrameData,
+  getMarkdownFrameHtml,
   isMarkdownFrameElement,
   MARKDOWN_FRAME_TOOL,
 } from "../markdownFrame";
@@ -460,6 +462,7 @@ import {
   MagicIcon,
   copyIcon,
   fullscreenIcon,
+  pencilIcon,
   ZoomInIcon,
   ZoomOutIcon,
 } from "./icons";
@@ -1803,6 +1806,15 @@ class App extends React.Component<AppProps, AppState> {
           if (isIframeElement(el)) {
             src = null;
 
+            const markdownFrameHtml = getMarkdownFrameHtml(el);
+            if (markdownFrameHtml) {
+              src = {
+                intrinsicSize: { w: el.width, h: el.height },
+                type: "document",
+                srcdoc: () => markdownFrameHtml,
+              } as const;
+            }
+
             const data: MagicGenerationData = (el.customData?.generationData ??
               this.magicGenerations.get(el.id)) || {
               status: "error",
@@ -1810,7 +1822,7 @@ class App extends React.Component<AppProps, AppState> {
               code: "ERR_NO_GENERATION_DATA",
             };
 
-            if (data.status === "done") {
+            if (!src && data.status === "done") {
               const html = data.html;
               src = {
                 intrinsicSize: { w: el.width, h: el.height },
@@ -1819,7 +1831,7 @@ class App extends React.Component<AppProps, AppState> {
                   return html;
                 },
               } as const;
-            } else if (data.status === "pending") {
+            } else if (!src && data.status === "pending") {
               src = {
                 intrinsicSize: { w: el.width, h: el.height },
                 type: "document",
@@ -1901,7 +1913,7 @@ class App extends React.Component<AppProps, AppState> {
                   `);
                 },
               } as const;
-            } else {
+            } else if (!src && data.status === "error") {
               let message: string;
               if (data.code === "ERR_GENERATION_INTERRUPTED") {
                 message = "Generation was interrupted...";
@@ -2065,20 +2077,32 @@ class App extends React.Component<AppProps, AppState> {
                         }
                         // https://stackoverflow.com/q/18470015
                         scrolling="no"
-                        referrerPolicy="no-referrer-when-downgrade"
+                        referrerPolicy={
+                          isMarkdownFrameElement(el)
+                            ? "no-referrer"
+                            : "no-referrer-when-downgrade"
+                        }
                         title="Excalidraw Embedded Content"
                         style={
                           isMarkdownFrameElement(el)
                             ? { borderRadius: 0 }
                             : undefined
                         }
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allow={
+                          isMarkdownFrameElement(el)
+                            ? undefined
+                            : "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        }
                         allowFullScreen={!isMarkdownFrameElement(el)}
-                        sandbox={`${
-                          src?.sandbox?.allowSameOrigin
-                            ? "allow-same-origin"
-                            : ""
-                        } allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation allow-downloads`}
+                        sandbox={
+                          isMarkdownFrameElement(el)
+                            ? "allow-popups"
+                            : `${
+                                src?.sandbox?.allowSameOrigin
+                                  ? "allow-same-origin"
+                                  : ""
+                              } allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation allow-downloads`
+                        }
                       />
                     )}
                   </div>
@@ -2540,8 +2564,9 @@ class App extends React.Component<AppProps, AppState> {
                           {this.isDefaultUIEnabled() &&
                             selectedElements.length === 1 &&
                             isIframeElement(firstSelectedElement) &&
-                            firstSelectedElement.customData?.generationData
-                              ?.status === "done" && (
+                            (isMarkdownFrameElement(firstSelectedElement) ||
+                              firstSelectedElement.customData?.generationData
+                                ?.status === "done") && (
                               <ElementCanvasButtons
                                 element={firstSelectedElement}
                                 elementsMap={renderableElementsMap}
@@ -2558,6 +2583,31 @@ class App extends React.Component<AppProps, AppState> {
                                   firstSelectedElement,
                                 ) && (
                                   <>
+                                    <ElementCanvasButton
+                                      title="Edit Markdown"
+                                      icon={pencilIcon}
+                                      checked={false}
+                                      onChange={() => {
+                                        const markdownFrame =
+                                          getMarkdownFrameData(
+                                            firstSelectedElement,
+                                          );
+                                        if (!markdownFrame) {
+                                          return;
+                                        }
+                                        this.setOpenDialog({
+                                          name: "markdownFrameEditor",
+                                          elementId: firstSelectedElement.id,
+                                          markdown: markdownFrame.markdown,
+                                          contentScale:
+                                            markdownFrame.contentScale,
+                                          baseVersion:
+                                            firstSelectedElement.version,
+                                          baseVersionNonce:
+                                            firstSelectedElement.versionNonce,
+                                        });
+                                      }}
+                                    />
                                     <ElementCanvasButton
                                       title="Zoom out content"
                                       icon={ZoomOutIcon}
@@ -2952,6 +3002,16 @@ class App extends React.Component<AppProps, AppState> {
   }
 
   private onIframeSrcCopy(element: ExcalidrawIframeElement) {
+    const markdownFrame = getMarkdownFrameData(element);
+    if (markdownFrame) {
+      copyTextToSystemClipboard(markdownFrame.markdown);
+      this.setToast({
+        message: "copied to clipboard",
+        closable: false,
+        duration: 1500,
+      });
+      return;
+    }
     if (element.customData?.generationData?.status === "done") {
       copyTextToSystemClipboard(element.customData.generationData.html);
       this.setToast({
@@ -10481,7 +10541,6 @@ class App extends React.Component<AppProps, AppState> {
         : this.getEffectiveGridSize(),
     );
     const contentScale = 1;
-    const html = createMarkdownFrameHtml(DEFAULT_MARKDOWN, contentScale);
     const element = newIframeElement({
       type: "iframe",
       x: gridX,
@@ -10497,15 +10556,11 @@ class App extends React.Component<AppProps, AppState> {
       roundness: null,
       opacity: 100,
       locked: false,
-      customData: {
-        generationData: { status: "done", html },
-        markdownFrame: {
-          markdown: DEFAULT_MARKDOWN,
-          contentScale,
-          theme: "aurora",
-          version: 1,
-        },
-      },
+      customData: createMarkdownFrameCustomData(
+        undefined,
+        DEFAULT_MARKDOWN,
+        contentScale,
+      ),
     } as any);
 
     this.insertNewElement(element);
@@ -10516,7 +10571,7 @@ class App extends React.Component<AppProps, AppState> {
     element: ExcalidrawIframeElement,
     delta: number,
   ) => {
-    const markdownFrame = element.customData?.markdownFrame;
+    const markdownFrame = getMarkdownFrameData(element);
     if (!markdownFrame) {
       return;
     }
@@ -10530,15 +10585,45 @@ class App extends React.Component<AppProps, AppState> {
     if (contentScale === markdownFrame.contentScale) {
       return;
     }
-    const html = createMarkdownFrameHtml(markdownFrame.markdown, contentScale);
     this.store.scheduleCapture();
     this.scene.mutateElement(element, {
-      customData: {
-        ...element.customData,
-        generationData: { status: "done", html },
-        markdownFrame: { ...markdownFrame, contentScale },
-      },
+      customData: createMarkdownFrameCustomData(
+        element.customData,
+        markdownFrame.markdown,
+        contentScale,
+      ),
     });
+  };
+
+  public saveMarkdownFrame = (
+    elementId: string,
+    baseVersion: number,
+    baseVersionNonce: number,
+    markdown: string,
+  ) => {
+    const element = this.scene.getNonDeletedElement(elementId);
+    const markdownFrame = element ? getMarkdownFrameData(element) : null;
+    if (!element || !markdownFrame) {
+      return "missing" as const;
+    }
+    if (
+      element.version !== baseVersion ||
+      element.versionNonce !== baseVersionNonce
+    ) {
+      return "conflict" as const;
+    }
+    if (markdown === markdownFrame.markdown) {
+      return "unchanged" as const;
+    }
+    this.store.scheduleCapture();
+    this.scene.mutateElement(element, {
+      customData: createMarkdownFrameCustomData(
+        element.customData,
+        markdown,
+        markdownFrame.contentScale,
+      ),
+    });
+    return "saved" as const;
   };
 
   private maybeCacheReferenceSnapPoints(

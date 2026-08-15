@@ -54,6 +54,7 @@ import { ImageExportDialog } from "./ImageExportDialog";
 import { Island } from "./Island";
 import { JSONExportDialog } from "./JSONExportDialog";
 import { LaserPointerButton } from "./LaserPointerButton";
+import { MarkdownFrameEditorDialog } from "./MarkdownFrameEditorDialog";
 import { Toast } from "./Toast";
 import { Toolbar } from "./Toolbar";
 import {
@@ -169,6 +170,10 @@ const LayerUI = ({
   const stylesPanelMode = useStylesPanelMode();
   const isCompactStylesPanel = stylesPanelMode === "compact";
   const tunnels = useInitializeTunnels();
+  const markdownFrameDialog =
+    appState.openDialog?.name === "markdownFrameEditor"
+      ? appState.openDialog
+      : null;
 
   const spacing = isCompactStylesPanel
     ? {
@@ -562,6 +567,21 @@ const LayerUI = ({
           onClose={() => {
             setAppState({ openDialog: null });
           }}
+        />
+      )}
+      {markdownFrameDialog && (
+        <MarkdownFrameEditorDialog
+          initialMarkdown={markdownFrameDialog.markdown}
+          contentScale={markdownFrameDialog.contentScale}
+          onSave={(markdown) =>
+            app.saveMarkdownFrame(
+              markdownFrameDialog.elementId,
+              markdownFrameDialog.baseVersion,
+              markdownFrameDialog.baseVersionNonce,
+              markdown,
+            )
+          }
+          onClose={() => setAppState({ openDialog: null })}
         />
       )}
       <ActiveConfirmDialog />

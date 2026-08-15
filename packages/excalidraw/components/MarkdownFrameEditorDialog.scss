@@ -1,0 +1,74 @@
+.MarkdownFrameEditorDialog {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  min-height: min(68vh, 620px);
+
+  &__pane {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  textarea,
+  iframe {
+    width: 100%;
+    min-height: 0;
+    flex: 1;
+    box-sizing: border-box;
+    border: 1px solid var(--color-gray-30);
+    border-radius: var(--border-radius-md);
+  }
+
+  > label.MarkdownFrameEditorDialog__pane > textarea {
+    resize: none;
+    padding: 12px;
+    background: var(--color-surface-low);
+    color: var(--text-primary-color);
+    font: 14px/1.6 "Maple Mono NF CN", monospace;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+  }
+
+  iframe {
+    background: #23262e;
+  }
+
+  &__header,
+  &__actions {
+    display: flex;
+    align-items: center;
+  }
+
+  &__header {
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+
+    h2 {
+      margin: 0;
+      font-size: 1.25rem;
+    }
+  }
+
+  &__actions {
+    gap: 8px;
+  }
+
+  &__error {
+    margin-bottom: 12px;
+    color: var(--color-danger);
+  }
+}
+
+@media (max-width: 700px) {
+  .MarkdownFrameEditorDialog {
+    grid-template-columns: 1fr;
+    min-height: 0;
+
+    &__pane {
+      min-height: 280px;
+    }
+  }
+}

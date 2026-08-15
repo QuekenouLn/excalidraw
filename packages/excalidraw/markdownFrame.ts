@@ -55,9 +55,91 @@ Write **Markdown** here with the Aurora theme.
 - Links and inline \`code\`
 - Quotes and fenced code blocks`;
 
-export const isMarkdownFrameElement = (element: {
+export const MIN_MARKDOWN_FRAME_SCALE = 0.5;
+export const MAX_MARKDOWN_FRAME_SCALE = 2;
+export const MAX_MARKDOWN_FRAME_BYTES = 1024 * 1024;
+
+export type MarkdownFrameData = {
+  markdown: string;
+  contentScale: number;
+  theme: "aurora";
+  version: 1;
+};
+
+type MarkdownFrameElementLike = {
+  type?: string;
   customData?: Record<string, any>;
-}) => Boolean(element.customData?.markdownFrame);
+};
+
+export const hasMarkdownFrameMarker = (element: MarkdownFrameElementLike) =>
+  Boolean(element.customData?.markdownFrame);
+
+export const normalizeMarkdownFrameScale = (scale: unknown) => {
+  const value = typeof scale === "number" && Number.isFinite(scale) ? scale : 1;
+  return Math.min(
+    MAX_MARKDOWN_FRAME_SCALE,
+    Math.max(MIN_MARKDOWN_FRAME_SCALE, value),
+  );
+};
+
+export const getMarkdownFrameData = (
+  element: MarkdownFrameElementLike,
+): MarkdownFrameData | null => {
+  const data = element.customData?.markdownFrame;
+  if (
+    element.type !== "iframe" ||
+    !data ||
+    typeof data.markdown !== "string" ||
+    data.theme !== "aurora" ||
+    data.version !== 1
+  ) {
+    return null;
+  }
+  return {
+    markdown: data.markdown,
+    contentScale: normalizeMarkdownFrameScale(data.contentScale),
+    theme: "aurora",
+    version: 1,
+  };
+};
+
+export const isMarkdownFrameElement = (element: MarkdownFrameElementLike) =>
+  getMarkdownFrameData(element) !== null;
+
+export const createMarkdownFrameCustomData = (
+  customData: Record<string, any> | undefined,
+  markdown: string,
+  contentScale: unknown,
+) => {
+  const scale = normalizeMarkdownFrameScale(contentScale);
+  return {
+    ...customData,
+    generationData: {
+      ...customData?.generationData,
+      status: "done" as const,
+      html: createMarkdownFrameHtml(markdown, scale),
+    },
+    markdownFrame: {
+      ...customData?.markdownFrame,
+      markdown,
+      contentScale: scale,
+      theme: "aurora" as const,
+      version: 1 as const,
+    },
+  };
+};
+
+export const getMarkdownFrameHtml = (element: MarkdownFrameElementLike) => {
+  if (!hasMarkdownFrameMarker(element)) {
+    return null;
+  }
+  const data = getMarkdownFrameData(element);
+  return data
+    ? createMarkdownFrameHtml(data.markdown, data.contentScale)
+    : createMarkdownFrameHtml(
+        "Unable to render this Markdown Frame because its data is invalid.",
+      );
+};
 
 const escapeHtml = (value: string) =>
   value
@@ -180,10 +262,11 @@ export const renderMarkdown = (markdown: string) => {
 
 export const createMarkdownFrameHtml = (
   markdown: string,
-  scale = 1,
+  scale: unknown = 1,
 ) => `<!doctype html>
 <html><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'" />
 <style>${AURORA_STYLES}</style></head>
-<body style="--markdown-scale:${scale}">
+<body style="--markdown-scale:${normalizeMarkdownFrameScale(scale)}">
 <article class="markdown-frame">${renderMarkdown(markdown)}</article>
 </body></html>`;
