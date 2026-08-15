@@ -58,7 +58,8 @@ import {
   isLinearElement,
   isLineElement,
   isTextElement,
-  isUsingAdaptiveRadius,
+  getRoundnessForElementType,
+  getStrokeRoundness,
 } from "@excalidraw/element";
 
 import { hasStrokeColor } from "@excalidraw/element";
@@ -125,6 +126,7 @@ import {
   FontSizeLargeIcon,
   FontSizeExtraLargeIcon,
   EdgeSharpIcon,
+  EdgeSoftIcon,
   EdgeRoundIcon,
   TextAlignLeftIcon,
   TextAlignCenterIcon,
@@ -1665,11 +1667,13 @@ export const actionChangeVerticalAlign = register<VerticalAlign>({
   },
 });
 
-export const actionChangeRoundness = register<"sharp" | "round">({
+export const actionChangeRoundness = register<"sharp" | "soft" | "round">({
   name: "changeRoundness",
   label: "Change edge roundness",
   trackEvent: false,
   perform: (elements, appState, value) => {
+    invariant(value, "actionChangeRoundness: value must be defined");
+
     return {
       elements: changeProperty(elements, appState, (el) => {
         if (isElbowArrow(el)) {
@@ -1677,14 +1681,7 @@ export const actionChangeRoundness = register<"sharp" | "round">({
         }
 
         return newElementWith(el, {
-          roundness:
-            value === "round"
-              ? {
-                  type: isUsingAdaptiveRadius(el.type)
-                    ? ROUNDNESS.ADAPTIVE_RADIUS
-                    : ROUNDNESS.PROPORTIONAL_RADIUS,
-                }
-              : null,
+          roundness: getRoundnessForElementType(el.type, value),
         });
       }),
       appState: {
@@ -1715,11 +1712,19 @@ export const actionChangeRoundness = register<"sharp" | "round">({
                 value: "sharp",
                 text: t("labels.sharp"),
                 icon: EdgeSharpIcon,
+                testId: "edge-sharp",
+              },
+              {
+                value: "soft",
+                text: t("labels.soft"),
+                icon: EdgeSoftIcon,
+                testId: "edge-soft",
               },
               {
                 value: "round",
                 text: t("labels.round"),
                 icon: EdgeRoundIcon,
+                testId: "edge-round",
               },
             ]}
             value={getFormValue(
@@ -1728,9 +1733,7 @@ export const actionChangeRoundness = register<"sharp" | "round">({
               (element) =>
                 hasLegacyRoundness
                   ? null
-                  : element.roundness
-                  ? "round"
-                  : "sharp",
+                  : getStrokeRoundness(element.roundness),
               (element) =>
                 !isArrowElement(element) && element.hasOwnProperty("roundness"),
               (hasSelection) =>

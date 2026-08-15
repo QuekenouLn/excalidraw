@@ -10,7 +10,6 @@ import {
 import {
   ELEMENT_PENDING_DRAW_SHAPE_OPACITY,
   getStrokeWidthByKey,
-  ROUNDNESS,
 } from "@excalidraw/common";
 import {
   convexHull,
@@ -49,7 +48,7 @@ import { getFrameLikeElements } from "./frame";
 import {
   isLinearElement,
   isLineElement,
-  isUsingAdaptiveRadius,
+  getRoundnessForElementType,
 } from "./typeChecks";
 import { LinearElementEditor } from "./linearElementEditor";
 
@@ -556,14 +555,10 @@ export const convertToShape = (
       return fx1 <= minX && fy1 <= minY && fx2 >= maxX && fy2 >= maxY;
     })?.id ?? null;
 
-  const roundness =
-    appState.currentItemRoundness === "round"
-      ? {
-          type: isUsingAdaptiveRadius(recognizedShape.type)
-            ? ROUNDNESS.ADAPTIVE_RADIUS
-            : ROUNDNESS.PROPORTIONAL_RADIUS,
-        }
-      : null;
+  const roundness = getRoundnessForElementType(
+    recognizedShape.type,
+    appState.currentItemRoundness,
+  );
 
   switch (recognizedShape.type) {
     case "rectangle":

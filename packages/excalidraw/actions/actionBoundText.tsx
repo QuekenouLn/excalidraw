@@ -1,6 +1,5 @@
 import {
   BOUND_TEXT_PADDING,
-  ROUNDNESS,
   TEXT_ALIGN,
   VERTICAL_ALIGN,
   arrayToMap,
@@ -26,7 +25,7 @@ import {
   isArrowElement,
   isTextBindableContainer,
   isTextElement,
-  isUsingAdaptiveRadius,
+  getRoundnessForElementType,
 } from "@excalidraw/element";
 
 import { measureText } from "@excalidraw/element";
@@ -255,14 +254,10 @@ export const actionWrapTextInContainer = register({
             appState.currentItemStrokeWidthKey,
           ),
           strokeStyle: appState.currentItemStrokeStyle,
-          roundness:
-            appState.currentItemRoundness === "round"
-              ? {
-                  type: isUsingAdaptiveRadius("rectangle")
-                    ? ROUNDNESS.ADAPTIVE_RADIUS
-                    : ROUNDNESS.PROPORTIONAL_RADIUS,
-                }
-              : null,
+          roundness: getRoundnessForElementType(
+            "rectangle",
+            appState.currentItemRoundness,
+          ),
           opacity: 100,
           locked: false,
           x: textElement.x - BOUND_TEXT_PADDING,

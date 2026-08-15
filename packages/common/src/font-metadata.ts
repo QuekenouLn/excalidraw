@@ -111,6 +111,15 @@ export const FONT_METADATA: Record<number, FontMetadata> = {
     },
     private: true,
   },
+  [FONT_FAMILY["Maple Mono NF CN"]]: {
+    metrics: {
+      // head/hhea from MapleMono-NF-CN-Regular.ttf (v7.9)
+      unitsPerEm: 1000,
+      ascender: 1020,
+      descender: -300,
+      lineHeight: 1.2,
+    },
+  },
   [FONT_FAMILY_FALLBACKS.Xiaolai]: {
     metrics: {
       unitsPerEm: 1000,

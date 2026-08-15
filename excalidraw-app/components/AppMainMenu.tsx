@@ -1,7 +1,9 @@
 import {
+  LoadIcon,
   loginIcon,
   ExcalLogo,
   eyeIcon,
+  save,
 } from "@excalidraw/excalidraw/components/icons";
 import { MainMenu } from "@excalidraw/excalidraw/index";
 import React from "react";
@@ -21,11 +23,18 @@ export const AppMainMenu: React.FC<{
   isCollabEnabled: boolean;
   theme: Theme | "system";
   refresh: () => void;
+  onOpenRemote: () => void;
+  onSaveRemote: () => void;
 }> = React.memo((props) => {
   return (
     <MainMenu>
       <MainMenu.DefaultItems.LoadScene />
-      <MainMenu.DefaultItems.SaveToActiveFile />
+      <MainMenu.Item icon={LoadIcon} onSelect={props.onOpenRemote}>
+        Open in remote
+      </MainMenu.Item>
+      <MainMenu.Item icon={save} onSelect={props.onSaveRemote}>
+        Save in remote
+      </MainMenu.Item>
       <MainMenu.DefaultItems.Export />
       <MainMenu.DefaultItems.SaveAsImage />
       {props.isCollabEnabled && (

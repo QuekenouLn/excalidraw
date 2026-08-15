@@ -148,7 +148,7 @@ import {
   isInitializedImageElement,
   isLinearElement,
   isLinearElementType,
-  isUsingAdaptiveRadius,
+  getRoundnessForElementType,
   isIframeElement,
   isIframeLikeElement,
   isMagicFrameElement,
@@ -419,6 +419,12 @@ import { isPointHittingTextAutoResizeHandle } from "../textAutoResizeHandle";
 import { textWysiwyg } from "../wysiwyg/textWysiwyg";
 import { isOverScrollBars } from "../scene/scrollbars";
 import { isMaybeMermaidDefinition } from "../mermaid";
+import {
+  createMarkdownFrameHtml,
+  DEFAULT_MARKDOWN,
+  isMarkdownFrameElement,
+  MARKDOWN_FRAME_TOOL,
+} from "../markdownFrame";
 import { LassoTrail } from "../lasso";
 import { EraserTrail } from "../eraser";
 import { getShortcutKey } from "../shortcut";
@@ -450,7 +456,13 @@ import { StaticCanvas, InteractiveCanvas } from "./canvases";
 import NewElementCanvas from "./canvases/NewElementCanvas";
 import { isPointHittingLink } from "./hyperlink/helpers";
 import { CursorHint, CursorHints } from "./CursorHint";
-import { MagicIcon, copyIcon, fullscreenIcon } from "./icons";
+import {
+  MagicIcon,
+  copyIcon,
+  fullscreenIcon,
+  ZoomInIcon,
+  ZoomOutIcon,
+} from "./icons";
 import { AppStateObserver, type OnStateChange } from "./AppStateObserver";
 
 import { findShapeByKey, TOGGLE_TOOLS } from "./Tools";
@@ -1972,6 +1984,11 @@ class App extends React.Component<AppProps, AppState> {
                   Math.min(el.width, el.height),
                   el,
                 )}px`,
+                ["--embeddable-inner-radius" as string]: `${Math.max(
+                  0,
+                  getCornerRadius(Math.min(el.width, el.height), el) -
+                    el.strokeWidth,
+                )}px`,
               }}
             >
               <div
@@ -2010,6 +2027,9 @@ class App extends React.Component<AppProps, AppState> {
                   className="excalidraw__embeddable__outer"
                   style={{
                     padding: `${el.strokeWidth}px`,
+                    backgroundColor: isMarkdownFrameElement(el)
+                      ? el.strokeColor
+                      : undefined,
                   }}
                 >
                   <div
@@ -2017,7 +2037,16 @@ class App extends React.Component<AppProps, AppState> {
                     style={{
                       width: `${embeddableViewportScale * 100}%`,
                       height: `${embeddableViewportScale * 100}%`,
-                      transform: `scale(${1 / embeddableViewportScale})`,
+                      transform:
+                        embeddableViewportScale === 1
+                          ? "none"
+                          : `scale(${1 / embeddableViewportScale})`,
+                      overflow: isMarkdownFrameElement(el)
+                        ? "hidden"
+                        : undefined,
+                      backgroundColor: isMarkdownFrameElement(el)
+                        ? el.backgroundColor
+                        : undefined,
                     }}
                   >
                     {(isEmbeddableElement(el)
@@ -2038,8 +2067,13 @@ class App extends React.Component<AppProps, AppState> {
                         scrolling="no"
                         referrerPolicy="no-referrer-when-downgrade"
                         title="Excalidraw Embedded Content"
+                        style={
+                          isMarkdownFrameElement(el)
+                            ? { borderRadius: 0 }
+                            : undefined
+                        }
                         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen={true}
+                        allowFullScreen={!isMarkdownFrameElement(el)}
                         sandbox={`${
                           src?.sandbox?.allowSameOrigin
                             ? "allow-same-origin"
@@ -2520,39 +2554,71 @@ class App extends React.Component<AppProps, AppState> {
                                     this.onIframeSrcCopy(firstSelectedElement)
                                   }
                                 />
-                                <ElementCanvasButton
-                                  title="Enter fullscreen"
-                                  icon={fullscreenIcon}
-                                  checked={false}
-                                  onChange={() => {
-                                    const iframe =
-                                      this.getHTMLIFrameElement(
-                                        firstSelectedElement,
-                                      );
-                                    if (iframe) {
-                                      try {
-                                        iframe.requestFullscreen();
-                                        this.setState({
-                                          activeEmbeddable: {
-                                            element: firstSelectedElement,
-                                            state: "active",
-                                          },
-                                          selectedElementIds: {
-                                            [firstSelectedElement.id]: true,
-                                          },
-                                          newElement: null,
-                                          selectionElement: null,
-                                        });
-                                      } catch (err: any) {
-                                        console.warn(err);
-                                        this.setState({
-                                          errorMessage:
-                                            "Couldn't enter fullscreen",
-                                        });
+                                {isMarkdownFrameElement(
+                                  firstSelectedElement,
+                                ) && (
+                                  <>
+                                    <ElementCanvasButton
+                                      title="Zoom out content"
+                                      icon={ZoomOutIcon}
+                                      checked={false}
+                                      onChange={() =>
+                                        this.changeMarkdownFrameScale(
+                                          firstSelectedElement,
+                                          -0.1,
+                                        )
                                       }
-                                    }
-                                  }}
-                                />
+                                    />
+                                    <ElementCanvasButton
+                                      title="Zoom in content"
+                                      icon={ZoomInIcon}
+                                      checked={false}
+                                      onChange={() =>
+                                        this.changeMarkdownFrameScale(
+                                          firstSelectedElement,
+                                          0.1,
+                                        )
+                                      }
+                                    />
+                                  </>
+                                )}
+                                {!isMarkdownFrameElement(
+                                  firstSelectedElement,
+                                ) && (
+                                  <ElementCanvasButton
+                                    title="Enter fullscreen"
+                                    icon={fullscreenIcon}
+                                    checked={false}
+                                    onChange={() => {
+                                      const iframe =
+                                        this.getHTMLIFrameElement(
+                                          firstSelectedElement,
+                                        );
+                                      if (iframe) {
+                                        try {
+                                          iframe.requestFullscreen();
+                                          this.setState({
+                                            activeEmbeddable: {
+                                              element: firstSelectedElement,
+                                              state: "active",
+                                            },
+                                            selectedElementIds: {
+                                              [firstSelectedElement.id]: true,
+                                            },
+                                            newElement: null,
+                                            selectionElement: null,
+                                          });
+                                        } catch (err: any) {
+                                          console.warn(err);
+                                          this.setState({
+                                            errorMessage:
+                                              "Couldn't enter fullscreen",
+                                          });
+                                        }
+                                      }
+                                    }}
+                                  />
+                                )}
                               </ElementCanvasButtons>
                             )}
 
@@ -8726,7 +8792,11 @@ class App extends React.Component<AppProps, AppState> {
         pointerDownState,
       );
     } else if (this.state.activeTool.type === "custom") {
-      this.cursor.applyForTool();
+      if (this.state.activeTool.customType === MARKDOWN_FRAME_TOOL) {
+        this.createMarkdownFrameElementOnPointerDown(pointerDownState);
+      } else {
+        this.cursor.applyForTool();
+      }
     } else if (
       this.state.activeTool.type === TOOL_TYPE.frame ||
       this.state.activeTool.type === TOOL_TYPE.magicframe
@@ -10173,10 +10243,10 @@ class App extends React.Component<AppProps, AppState> {
               strokeStyle: this.state.currentItemStrokeStyle,
               roughness: this.state.currentItemRoughness,
               opacity: this.state.currentItemOpacity,
-              roundness:
-                this.state.currentItemRoundness === "round"
-                  ? { type: ROUNDNESS.PROPORTIONAL_RADIUS }
-                  : null,
+              roundness: getRoundnessForElementType(
+                elementType,
+                this.state.currentItemRoundness,
+              ),
               locked: false,
               frameId: topLayerFrame ? topLayerFrame.id : null,
             });
@@ -10296,13 +10366,10 @@ class App extends React.Component<AppProps, AppState> {
       | "iframe"
       | "embeddable",
   ) {
-    return this.state.currentItemRoundness === "round"
-      ? {
-          type: isUsingAdaptiveRadius(elementType)
-            ? ROUNDNESS.ADAPTIVE_RADIUS
-            : ROUNDNESS.PROPORTIONAL_RADIUS,
-        }
-      : null;
+    return getRoundnessForElementType(
+      elementType,
+      this.state.currentItemRoundness,
+    );
   }
 
   private getCurrentItemStrokeWidth(elementType: ExcalidrawElement["type"]) {
@@ -10400,6 +10467,77 @@ class App extends React.Component<AppProps, AppState> {
     this.setState({
       multiElement: null,
       newElement: frame,
+    });
+  };
+
+  private createMarkdownFrameElementOnPointerDown = (
+    pointerDownState: PointerDownState,
+  ) => {
+    const [gridX, gridY] = getGridPoint(
+      pointerDownState.origin.x,
+      pointerDownState.origin.y,
+      this.lastPointerDownEvent?.[KEYS.CTRL_OR_CMD]
+        ? null
+        : this.getEffectiveGridSize(),
+    );
+    const contentScale = 1;
+    const html = createMarkdownFrameHtml(DEFAULT_MARKDOWN, contentScale);
+    const element = newIframeElement({
+      type: "iframe",
+      x: gridX,
+      y: gridY,
+      width: 0,
+      height: 0,
+      strokeColor: "#c74ded",
+      backgroundColor: "#23262e",
+      fillStyle: "solid",
+      strokeWidth: 1,
+      strokeStyle: "solid",
+      roughness: 0,
+      roundness: null,
+      opacity: 100,
+      locked: false,
+      customData: {
+        generationData: { status: "done", html },
+        markdownFrame: {
+          markdown: DEFAULT_MARKDOWN,
+          contentScale,
+          theme: "aurora",
+          version: 1,
+        },
+      },
+    } as any);
+
+    this.insertNewElement(element);
+    this.setState({ multiElement: null, newElement: element });
+  };
+
+  private changeMarkdownFrameScale = (
+    element: ExcalidrawIframeElement,
+    delta: number,
+  ) => {
+    const markdownFrame = element.customData?.markdownFrame;
+    if (!markdownFrame) {
+      return;
+    }
+    const contentScale = Math.min(
+      2,
+      Math.max(
+        0.5,
+        Math.round(((markdownFrame.contentScale ?? 1) + delta) * 10) / 10,
+      ),
+    );
+    if (contentScale === markdownFrame.contentScale) {
+      return;
+    }
+    const html = createMarkdownFrameHtml(markdownFrame.markdown, contentScale);
+    this.store.scheduleCapture();
+    this.scene.mutateElement(element, {
+      customData: {
+        ...element.customData,
+        generationData: { status: "done", html },
+        markdownFrame: { ...markdownFrame, contentScale },
+      },
     });
   };
 

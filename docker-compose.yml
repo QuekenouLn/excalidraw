@@ -1,23 +1,77 @@
 services:
   excalidraw:
-    build:
-      context: .
-      args:
-        - NODE_ENV=development
+    build: .
+    image: local/excalidraw:latest
     container_name: excalidraw
     ports:
-      - "3000:80"
-    restart: on-failure
-    stdin_open: true
-    healthcheck:
-      disable: true
+      - "5000:80"
+    restart: unless-stopped
+    depends_on:
+      remote-storage:
+        condition: service_healthy
+
+  remote-storage:
+    build: ./remote-storage
+    container_name: excalidraw-storage
+    restart: unless-stopped
     environment:
-      - NODE_ENV=development
+      STORAGE_DIR: /data
+      MAX_FILE_SIZE: 104857600
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/files')
+      interval: 2s
+      timeout: 2s
+      retries: 10
+      start_period: 2s
     volumes:
-      - ./:/opt/node_app/app:delegated
-      - ./package.json:/opt/node_app/package.json
-      - ./yarn.lock:/opt/node_app/yarn.lock
-      - notused:/opt/node_app/app/node_modules
+      - excalidraw-files:/data
+
+  excalidraw-mcp:
+    build:
+      context: ./integrations/excalidraw-mcp
+      dockerfile_inline: |
+        FROM node:22-bookworm-slim AS build
+        WORKDIR /app
+        RUN corepack enable
+        COPY . .
+        RUN pnpm install --frozen-lockfile && pnpm run build
+
+        FROM node:22-bookworm-slim
+        WORKDIR /app
+        ENV NODE_ENV=production
+        ENV PORT=3001
+        COPY --from=build /app/dist ./dist
+        EXPOSE 3001
+        CMD ["node", "dist/index.js"]
+    container_name: excalidraw-mcp
+    restart: unless-stopped
+    depends_on:
+      remote-storage:
+        condition: service_healthy
+    environment:
+      REMOTE_STORAGE_URL: http://remote-storage:8080
+      MCP_MAPLE_FONT_URL: http://10.0.0.176:5000/fonts/MapleMono/MapleMono-NF-CN-Regular.woff2
+    ports:
+      - "3002:3001"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:3001/mcp').then(() => process.exit(0)).catch(() => process.exit(1))
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    volumes:
+      - excalidraw-mcp-checkpoints:/tmp/excalidraw-mcp-checkpoints
 
 volumes:
-  notused:
+  excalidraw-files:
+    name: excalidraw-files
+  excalidraw-mcp-checkpoints:
+    name: excalidraw-mcp-checkpoints

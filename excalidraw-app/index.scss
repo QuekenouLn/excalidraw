@@ -128,3 +128,97 @@
     }
   }
 }
+
+.remote-switch-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 35%);
+}
+
+.remote-switch-dialog {
+  width: min(28rem, 100%);
+  padding: 1rem;
+  border-radius: var(--border-radius-lg);
+  background: #ffffff;
+  color: #1b1b1f;
+  box-shadow: 0 12px 40px rgb(0 0 0 / 25%);
+
+  h2 {
+    margin: 0;
+    font-size: 1.1rem;
+  }
+
+  button {
+    border: 0;
+    border-radius: var(--border-radius-md);
+    padding: 0.5rem 0.75rem;
+    background: var(--button-gray-1);
+    color: inherit;
+    cursor: pointer;
+  }
+}
+
+.remote-files-list {
+  display: grid;
+  align-content: start;
+  gap: 0.5rem;
+}
+
+.remote-files-item {
+  padding: 0.5rem;
+  border-radius: var(--border-radius-md);
+  background: var(--color-surface-low);
+
+  span {
+    margin-left: auto;
+    font-size: 0.75rem;
+    color: var(--color-on-surface-muted);
+  }
+}
+
+.remote-files-item--active {
+  box-shadow: inset 0 0 0 1px var(--color-primary);
+}
+
+.remote-files-name {
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.remote-files-delete {
+  color: var(--color-danger) !important;
+}
+
+.remote-files-status,
+.remote-files-error {
+  margin: 1rem 0 0;
+}
+
+.remote-files-error {
+  color: var(--color-danger);
+}
+
+.remote-switch-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+.remote-switch-dialog__save {
+  background: #6965db !important;
+  color: #ffffff !important;
+}
+
+.theme--dark + .remote-switch-backdrop .remote-switch-dialog,
+.excalidraw-app:has(.theme--dark) .remote-switch-dialog {
+  background: #232329;
+  color: #f1f0ff;
+  box-shadow: 0 12px 40px rgb(0 0 0 / 55%);
+}

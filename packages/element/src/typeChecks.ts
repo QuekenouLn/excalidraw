@@ -1,4 +1,9 @@
-import { ROUNDNESS, assertNever } from "@excalidraw/common";
+import {
+  ROUNDNESS,
+  SOFT_ADAPTIVE_RADIUS,
+  SOFT_PROPORTIONAL_RADIUS,
+  assertNever,
+} from "@excalidraw/common";
 
 import { pointsEqual } from "@excalidraw/math";
 
@@ -29,6 +34,7 @@ import type {
   ExcalidrawLineElement,
   ExcalidrawFlowchartNodeElement,
   ExcalidrawLinearElementSubType,
+  StrokeRoundness,
 } from "./types";
 
 export const isInitializedImageElement = <T extends ExcalidrawElement>(
@@ -341,15 +347,47 @@ export const canApplyRoundnessTypeToElement = (
 export const getDefaultRoundnessTypeForElement = (
   element: ExcalidrawElement,
 ) => {
-  if (isUsingProportionalRadius(element.type)) {
+  return getRoundnessForElementType(element.type, "round");
+};
+
+export const getStrokeRoundness = (
+  roundness: ExcalidrawElement["roundness"],
+): StrokeRoundness => {
+  if (!roundness) {
+    return "sharp";
+  }
+  if (
+    (roundness.type === ROUNDNESS.ADAPTIVE_RADIUS &&
+      roundness.value === SOFT_ADAPTIVE_RADIUS) ||
+    (roundness.type === ROUNDNESS.PROPORTIONAL_RADIUS &&
+      roundness.value === SOFT_PROPORTIONAL_RADIUS)
+  ) {
+    return "soft";
+  }
+  return "round";
+};
+
+export const getRoundnessForElementType = (
+  elementType: string,
+  strokeRoundness: StrokeRoundness,
+): ExcalidrawElement["roundness"] => {
+  if (strokeRoundness === "sharp") {
+    return null;
+  }
+
+  const isSoft = strokeRoundness === "soft";
+
+  if (isUsingAdaptiveRadius(elementType)) {
     return {
-      type: ROUNDNESS.PROPORTIONAL_RADIUS,
+      type: ROUNDNESS.ADAPTIVE_RADIUS,
+      ...(isSoft ? { value: SOFT_ADAPTIVE_RADIUS } : {}),
     };
   }
 
-  if (isUsingAdaptiveRadius(element.type)) {
+  if (isUsingProportionalRadius(elementType)) {
     return {
-      type: ROUNDNESS.ADAPTIVE_RADIUS,
+      type: ROUNDNESS.PROPORTIONAL_RADIUS,
+      ...(isSoft ? { value: SOFT_PROPORTIONAL_RADIUS } : {}),
     };
   }
 

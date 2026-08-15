@@ -1341,6 +1341,30 @@ export const EdgeSharpIcon = createIcon(
   modifiedTablerIconProps,
 );
 
+export const EdgeSoftIcon = createIcon(
+  <g
+    strokeWidth="1.5"
+    stroke="currentColor"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+    <path d="M4 12v-6a2 2 0 0 1 2 -2h6" />
+    <line x1="16" y1="4" x2="16" y2="4.01" />
+    <line x1="20" y1="4" x2="20" y2="4.01" />
+    <line x1="20" y1="8" x2="20" y2="8.01" />
+    <line x1="20" y1="12" x2="20" y2="12.01" />
+    <line x1="4" y1="16" x2="4" y2="16.01" />
+    <line x1="20" y1="16" x2="20" y2="16.01" />
+    <line x1="4" y1="20" x2="4" y2="20.01" />
+    <line x1="8" y1="20" x2="8" y2="20.01" />
+    <line x1="12" y1="20" x2="12" y2="20.01" />
+    <line x1="16" y1="20" x2="16" y2="20.01" />
+    <line x1="20" y1="20" x2="20" y2="20.01" />
+  </g>,
+  tablerIconProps,
+);
+
 // tabler-icons: border-radius
 export const EdgeRoundIcon = createIcon(
   <g

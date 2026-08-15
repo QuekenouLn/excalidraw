@@ -22,6 +22,12 @@ import "./FontPicker.scss";
 
 export const DEFAULT_FONTS = [
   {
+    value: FONT_FAMILY["Maple Mono NF CN"],
+    icon: FontFamilyCodeIcon,
+    text: "Maple Mono",
+    testId: "font-family-maple-mono",
+  },
+  {
     value: FONT_FAMILY.Excalifont,
     icon: FreedrawIcon,
     text: t("labels.handDrawn"),

@@ -101,6 +101,7 @@ import Collab, {
 } from "./collab/Collab";
 import { AppFooter } from "./components/AppFooter";
 import { AppMainMenu } from "./components/AppMainMenu";
+import { RemoteFileSwitchDialog } from "./components/RemoteFileSwitchDialog";
 import { AppWelcomeScreen } from "./components/AppWelcomeScreen";
 import {
   ExportToExcalidrawPlus,
@@ -148,6 +149,10 @@ import "./index.scss";
 
 import { ExcalidrawPlusPromoBanner } from "./components/ExcalidrawPlusPromoBanner";
 import { AppSidebar } from "./components/AppSidebar";
+import {
+  openRemoteFile,
+  saveRemoteFile,
+} from "./data/remoteFiles";
 
 import type { CollabAPI } from "./collab/Collab";
 
@@ -376,6 +381,12 @@ const ExcalidrawWrapper = () => {
   const excalidrawAPI = useExcalidrawAPI();
 
   const [errorMessage, setErrorMessage] = useState("");
+  const [activeRemoteFile, setActiveRemoteFile] = useState<string | null>(null);
+  const [activeRemoteRevision, setActiveRemoteRevision] = useState<string | null>(null);
+  const [remoteFileDirty, setRemoteFileDirty] = useState(false);
+  const [pendingRemoteFile, setPendingRemoteFile] = useState<string | null>(null);
+  const [remoteFilesRevision, setRemoteFilesRevision] = useState(0);
+  const savedSceneSignatureRef = useRef<string | null>(null);
   const isCollabDisabled = isRunningInIframe();
 
   const { editorTheme, appTheme, setAppTheme } = useHandleAppTheme();
@@ -717,6 +728,21 @@ const ExcalidrawWrapper = () => {
     appState: AppState,
     files: BinaryFiles,
   ) => {
+    const sceneSignature = JSON.stringify({
+      elements: elements.map(({ id, version, versionNonce, isDeleted }) => ({
+        id,
+        version,
+        versionNonce,
+        isDeleted,
+      })),
+      viewBackgroundColor: appState.viewBackgroundColor,
+    });
+    if (savedSceneSignatureRef.current === null) {
+      savedSceneSignatureRef.current = sceneSignature;
+    } else {
+      setRemoteFileDirty(savedSceneSignatureRef.current !== sceneSignature);
+    }
+
     if (collabAPI?.isCollaborating()) {
       collabAPI.syncElements(elements);
     }
@@ -829,6 +855,115 @@ const ExcalidrawWrapper = () => {
     () => setShareDialogState({ isOpen: true, type: "collaborationOnly" }),
     [setShareDialogState],
   );
+
+  const markCurrentSceneSaved = useCallback(() => {
+    if (!excalidrawAPI) {
+      return;
+    }
+    savedSceneSignatureRef.current = JSON.stringify({
+      elements: excalidrawAPI
+        .getSceneElementsIncludingDeleted()
+        .map(({ id, version, versionNonce, isDeleted }) => ({
+          id,
+          version,
+          versionNonce,
+          isDeleted,
+        })),
+      viewBackgroundColor: excalidrawAPI.getAppState().viewBackgroundColor,
+    });
+    setRemoteFileDirty(false);
+  }, [excalidrawAPI]);
+
+  const openRemoteFileNow = useCallback(async (name: string) => {
+    if (!excalidrawAPI) {
+      return;
+    }
+    try {
+      const revision = await openRemoteFile(name, excalidrawAPI);
+      setActiveRemoteFile(name);
+      setActiveRemoteRevision(revision);
+      markCurrentSceneSaved();
+      excalidrawAPI.setToast({ message: `Opened ${name}` });
+    } catch (error: any) {
+      setErrorMessage(error.message);
+    }
+  }, [excalidrawAPI, markCurrentSceneSaved]);
+
+  const handleOpenRemoteFile = useCallback(
+    (name: string) => {
+      if (name === activeRemoteFile) {
+        return;
+      }
+      if (activeRemoteFile && remoteFileDirty) {
+        setPendingRemoteFile(name);
+        return;
+      }
+      openRemoteFileNow(name);
+    },
+    [activeRemoteFile, openRemoteFileNow, remoteFileDirty],
+  );
+
+  const handleDeleteRemoteFile = useCallback(
+    (name: string) => {
+      if (name === activeRemoteFile) {
+        setActiveRemoteFile(null);
+        setActiveRemoteRevision(null);
+        setRemoteFileDirty(true);
+        savedSceneSignatureRef.current = null;
+      }
+      setRemoteFilesRevision((revision) => revision + 1);
+      excalidrawAPI?.setToast({ message: `Deleted ${name}` });
+    },
+    [activeRemoteFile, excalidrawAPI],
+  );
+
+  const handleSaveRemoteFile = useCallback(async (): Promise<boolean> => {
+    if (!excalidrawAPI) {
+      return false;
+    }
+    const requestedName =
+      activeRemoteFile || window.prompt("Remote filename", excalidrawAPI.getName());
+    if (!requestedName) {
+      return false;
+    }
+    const name = requestedName.endsWith(".excalidraw")
+      ? requestedName
+      : `${requestedName}.excalidraw`;
+    try {
+      const result = await saveRemoteFile(
+        name,
+        excalidrawAPI,
+        name === activeRemoteFile ? activeRemoteRevision : null,
+      );
+      setActiveRemoteFile(name);
+      setActiveRemoteRevision(result.revision);
+      markCurrentSceneSaved();
+      setRemoteFilesRevision((revision) => revision + 1);
+      excalidrawAPI.setToast({ message: `Saved ${name}` });
+      return true;
+    } catch (error: any) {
+      setErrorMessage(error.message);
+      return false;
+    }
+  }, [activeRemoteFile, activeRemoteRevision, excalidrawAPI, markCurrentSceneSaved]);
+
+  const openRemoteSidebar = useCallback(() => {
+    excalidrawAPI?.updateScene({
+      appState: { openSidebar: { name: "default", tab: "remote" } },
+    });
+  }, [excalidrawAPI]);
+
+  useEffect(() => {
+    const saveHandler = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        handleSaveRemoteFile();
+      }
+    };
+    window.addEventListener("keydown", saveHandler, { capture: true });
+    return () => window.removeEventListener("keydown", saveHandler, { capture: true });
+  }, [handleSaveRemoteFile]);
 
   // ---------------------------------------------------------------------------
   // onExport — intercepts file save to wait for pending image loads
@@ -1033,6 +1168,8 @@ const ExcalidrawWrapper = () => {
           isCollabEnabled={!isCollabDisabled}
           theme={appTheme}
           refresh={() => forceRefresh((prev) => !prev)}
+          onOpenRemote={openRemoteSidebar}
+          onSaveRemote={handleSaveRemoteFile}
         />
         <AppWelcomeScreen
           onCollabDialogOpen={onCollabDialogOpen}
@@ -1100,7 +1237,13 @@ const ExcalidrawWrapper = () => {
           }}
         />
 
-        <AppSidebar />
+        <AppSidebar
+          activeRemoteFile={activeRemoteFile}
+          remoteFileDirty={remoteFileDirty}
+          onDeleteRemoteFile={handleDeleteRemoteFile}
+          onOpenRemoteFile={handleOpenRemoteFile}
+          remoteFilesRevision={remoteFilesRevision}
+        />
 
         {errorMessage && (
           <ErrorDialog onClose={() => setErrorMessage("")}>
@@ -1297,6 +1440,25 @@ const ExcalidrawWrapper = () => {
           />
         )}
       </Excalidraw>
+      {pendingRemoteFile && (
+        <RemoteFileSwitchDialog
+          currentFile={activeRemoteFile || "current drawing"}
+          nextFile={pendingRemoteFile}
+          onCancel={() => setPendingRemoteFile(null)}
+          onDiscard={() => {
+            const nextFile = pendingRemoteFile;
+            setPendingRemoteFile(null);
+            openRemoteFileNow(nextFile);
+          }}
+          onSave={async () => {
+            const nextFile = pendingRemoteFile;
+            if (await handleSaveRemoteFile()) {
+              setPendingRemoteFile(null);
+              openRemoteFileNow(nextFile);
+            }
+          }}
+        />
+      )}
     </div>
   );
 };

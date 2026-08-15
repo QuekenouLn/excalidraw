@@ -13,6 +13,8 @@ import {
   hasBoundTextElement,
   canApplyRoundnessTypeToElement,
   getDefaultRoundnessTypeForElement,
+  getRoundnessForElementType,
+  getStrokeRoundness,
   isFrameLikeElement,
   isArrowElement,
   isExcalidrawElement,
@@ -110,7 +112,10 @@ export const actionPasteStyles = register({
                   element,
                 )
                 ? elementStylesToCopyFrom.roundness
-                : getDefaultRoundnessTypeForElement(element)
+                : getRoundnessForElementType(
+                    element.type,
+                    getStrokeRoundness(elementStylesToCopyFrom.roundness),
+                  ) ?? getDefaultRoundnessTypeForElement(element)
               : null,
           });
 

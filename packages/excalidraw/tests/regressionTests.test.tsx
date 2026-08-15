@@ -657,7 +657,9 @@ describe("regression tests", () => {
 
   it("updates fontSize & fontFamily appState", () => {
     UI.clickTool("text");
-    expect(h.state.currentItemFontFamily).toEqual(FONT_FAMILY.Excalifont);
+    expect(h.state.currentItemFontFamily).toEqual(
+      FONT_FAMILY["Maple Mono NF CN"],
+    );
     fireEvent.click(screen.getByTitle(/code/i));
     expect(h.state.currentItemFontFamily).toEqual(FONT_FAMILY["Comic Shanns"]);
   });

@@ -138,6 +138,8 @@ export const FONT_FAMILY = {
   "Comic Shanns": 8,
   "Liberation Sans": 9,
   Assistant: 10,
+  /** Maple Mono NF CN — monospace with Nerd Font icons + CJK glyphs */
+  "Maple Mono NF CN": 11,
 };
 
 // Segoe UI Emoji fails to properly fallback for some glyphs: ∞, ∫, ≠
@@ -162,6 +164,7 @@ export function getGenericFontFamilyFallback(
   switch (fontFamily) {
     case FONT_FAMILY.Cascadia:
     case FONT_FAMILY["Comic Shanns"]:
+    case FONT_FAMILY["Maple Mono NF CN"]:
       return MONOSPACE_GENERIC_FONT;
 
     default:
@@ -211,7 +214,8 @@ export const FRAME_STYLE = {
 
 export const MIN_FONT_SIZE = 1;
 export const DEFAULT_FONT_SIZE = 20;
-export const DEFAULT_FONT_FAMILY: FontFamilyValues = FONT_FAMILY.Excalifont;
+export const DEFAULT_FONT_FAMILY: FontFamilyValues =
+  FONT_FAMILY["Maple Mono NF CN"];
 export const DEFAULT_TEXT_ALIGN = "left";
 export const DEFAULT_VERTICAL_ALIGN = "top";
 export const DEFAULT_VERSION = "{version}";
@@ -379,6 +383,9 @@ export const ELEMENT_PENDING_DRAW_SHAPE_OPACITY = 70;
 export const DEFAULT_PROPORTIONAL_RADIUS = 0.25;
 // Fixed radius for the ADAPTIVE_RADIUS algorithm. In pixels.
 export const DEFAULT_ADAPTIVE_RADIUS = 32;
+// Slightly-rounded ("soft") corners — about 1/3 of the default roundness.
+export const SOFT_PROPORTIONAL_RADIUS = 0.1;
+export const SOFT_ADAPTIVE_RADIUS = 12;
 // roundness type (algorithm)
 export const ROUNDNESS = {
   // Used for legacy rounding (rectangles), which currently works the same
@@ -394,8 +401,7 @@ export const ROUNDNESS = {
   // radius visually similar across differnt element sizes, especially
   // very large and very small elements.
   //
-  // NOTE right now we don't allow configuration and use a constant radius
-  // (see DEFAULT_ADAPTIVE_RADIUS constant)
+  // A smaller radius can be stored in `roundness.value` (see SOFT_ADAPTIVE_RADIUS).
   ADAPTIVE_RADIUS: 3,
 } as const;
 

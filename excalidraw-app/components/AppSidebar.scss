@@ -89,4 +89,53 @@
       overflow: visible;
     }
   }
+
+  .remote-files-sidebar {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+    flex-direction: column;
+    padding: 0.75rem;
+  }
+
+  .remote-files-sidebar__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--default-border-color);
+
+    button {
+      border: 0;
+      border-radius: var(--border-radius-md);
+      padding: 0.4rem 0.6rem;
+      background: var(--button-gray-1);
+      color: inherit;
+      cursor: pointer;
+    }
+  }
+
+  .remote-files-sidebar__active {
+    max-width: 13rem;
+    margin-top: 0.25rem;
+    overflow: hidden;
+    color: var(--color-primary);
+    font-size: 0.75rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .remote-files-search {
+    flex: 0 0 auto;
+    margin-top: 0.75rem;
+  }
+
+  .remote-files-sidebar .remote-files-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    margin-top: 0.5rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
 }

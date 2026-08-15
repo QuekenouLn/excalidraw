@@ -944,6 +944,7 @@ body.excalidraw-cursor-resize * {
   }
 
   .excalidraw__embeddable__outer {
+    box-sizing: border-box;
     width: 100%;
     height: 100%;
   }
@@ -955,7 +956,10 @@ body.excalidraw-cursor-resize * {
 
     &,
     & > * {
-      border-radius: var(--embeddable-radius);
+      border-radius: var(
+        --embeddable-inner-radius,
+        var(--embeddable-radius)
+      );
     }
   }
 

@@ -6,7 +6,6 @@ import { pointFrom, type LocalPoint, type Radians } from "@excalidraw/math";
 
 import {
   DEFAULT_VERTICAL_ALIGN,
-  ROUNDNESS,
   assertNever,
   getStrokeWidthByKey,
 } from "@excalidraw/common";
@@ -24,7 +23,10 @@ import {
   newTextElement,
 } from "@excalidraw/element";
 
-import { isUsingAdaptiveRadius, getSelectedElements } from "@excalidraw/element";
+import {
+  getSelectedElements,
+  getRoundnessForElementType,
+} from "@excalidraw/element";
 import { selectGroupsForSelectedElements } from "@excalidraw/element";
 
 import { FONT_SIZES } from "@excalidraw/common";
@@ -275,17 +277,10 @@ export class API {
         rest.strokeWidth ??
         getStrokeWidthByKey(type, appState.currentItemStrokeWidthKey),
       strokeStyle: rest.strokeStyle ?? appState.currentItemStrokeStyle,
-      roundness: (
+      roundness:
         rest.roundness === undefined
-          ? appState.currentItemRoundness === "round"
-          : rest.roundness
-      )
-        ? {
-            type: isUsingAdaptiveRadius(type)
-                    ? ROUNDNESS.ADAPTIVE_RADIUS
-                    : ROUNDNESS.PROPORTIONAL_RADIUS,
-          }
-        : null,
+          ? getRoundnessForElementType(type, appState.currentItemRoundness)
+          : rest.roundness,
       roughness: rest.roughness ?? appState.currentItemRoughness,
       opacity: rest.opacity ?? appState.currentItemOpacity,
       boundElements: rest.boundElements ?? null,

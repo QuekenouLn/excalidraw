@@ -1,5 +1,6 @@
 import { DefaultSidebar, Sidebar, THEME } from "@excalidraw/excalidraw";
 import {
+  file,
   messageCircleIcon,
   presentationIcon,
 } from "@excalidraw/excalidraw/components/icons";
@@ -7,6 +8,7 @@ import { LinkButton } from "@excalidraw/excalidraw/components/LinkButton";
 import { useUIAppState } from "@excalidraw/excalidraw/context/ui-appState";
 
 import "./AppSidebar.scss";
+import { RemoteFilesSidebar } from "./RemoteFilesSidebar";
 
 type SidebarPromoCopyProps = {
   text: string;
@@ -65,12 +67,31 @@ const SidebarPromoCopy = (props: SidebarPromoCopyProps) => {
   );
 };
 
-export const AppSidebar = () => {
+export const AppSidebar = ({
+  activeRemoteFile,
+  remoteFileDirty,
+  onDeleteRemoteFile,
+  onOpenRemoteFile,
+  remoteFilesRevision,
+}: {
+  activeRemoteFile: string | null;
+  remoteFileDirty: boolean;
+  onDeleteRemoteFile: (name: string) => void;
+  onOpenRemoteFile: (name: string) => void;
+  remoteFilesRevision: number;
+}) => {
   const { theme, openSidebar } = useUIAppState();
 
   return (
     <DefaultSidebar>
       <DefaultSidebar.TabTriggers>
+        <Sidebar.TabTrigger
+          tab="remote"
+          title="Remote files"
+          style={{ opacity: openSidebar?.tab === "remote" ? 1 : 0.4 }}
+        >
+          {file}
+        </Sidebar.TabTrigger>
         <Sidebar.TabTrigger
           tab="comments"
           style={{ opacity: openSidebar?.tab === "comments" ? 1 : 0.4 }}
@@ -84,6 +105,15 @@ export const AppSidebar = () => {
           {presentationIcon}
         </Sidebar.TabTrigger>
       </DefaultSidebar.TabTriggers>
+      <Sidebar.Tab tab="remote">
+        <RemoteFilesSidebar
+          activeFile={activeRemoteFile}
+          isDirty={remoteFileDirty}
+          onDelete={onDeleteRemoteFile}
+          onOpen={onOpenRemoteFile}
+          revision={remoteFilesRevision}
+        />
+      </Sidebar.Tab>
       <Sidebar.Tab tab="comments">
         <div className="app-sidebar-promo-container">
           <div
