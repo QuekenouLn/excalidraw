@@ -21,6 +21,7 @@ import {
 const remoteFileMocks = vi.hoisted(() => ({
   listRemoteFileHistory: vi.fn(),
   listRemoteFiles: vi.fn(),
+  loadRemoteFilePreview: vi.fn(),
   restoreRemoteFileRevision: vi.fn(),
 }));
 
@@ -56,6 +57,7 @@ describe("Remote files", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     remoteFileMocks.listRemoteFiles.mockResolvedValue(files);
+    remoteFileMocks.loadRemoteFilePreview.mockResolvedValue(null);
   });
 
   it("filters filenames case-insensitively", () => {
@@ -208,6 +210,125 @@ describe("Remote files", () => {
       expect(screen.getAllByRole("button", { name: "Restore" })).toHaveLength(
         2,
       ),
+    );
+  });
+
+  it("previews the current version and replaces it with a selected revision", async () => {
+    remoteFileMocks.listRemoteFileHistory.mockResolvedValue([
+      {
+        revision: "revision-old",
+        size: 1024,
+        updatedAt: "2026-08-12T00:00:00Z",
+        current: false,
+      },
+    ]);
+    const currentPreview = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "svg",
+    );
+    currentPreview.setAttribute("data-preview", "current");
+    const oldPreview = document.createElementNS(
+      "http://www.w3.org/2000/svg",
+      "svg",
+    );
+    oldPreview.setAttribute("data-preview", "revision-old");
+    remoteFileMocks.loadRemoteFilePreview
+      .mockResolvedValueOnce(currentPreview)
+      .mockResolvedValueOnce(oldPreview);
+    await renderSidebar();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "History" })[0]);
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Preview current version" }),
+      ).toBeInTheDocument(),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Preview current version" }),
+    );
+
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-preview="current"]'),
+      ).toBeInTheDocument(),
+    );
+    expect(remoteFileMocks.loadRemoteFilePreview).toHaveBeenLastCalledWith(
+      "Architecture.excalidraw",
+      null,
+      "revision-a",
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /Preview version from/,
+      }),
+    );
+
+    await waitFor(() =>
+      expect(
+        document.querySelector('[data-preview="revision-old"]'),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      document.querySelector('[data-preview="current"]'),
+    ).not.toBeInTheDocument();
+    expect(
+      document.querySelectorAll(".remote-file-history__preview svg"),
+    ).toHaveLength(1);
+    expect(remoteFileMocks.loadRemoteFilePreview).toHaveBeenLastCalledWith(
+      "Architecture.excalidraw",
+      "revision-old",
+      "revision-old",
+    );
+  });
+
+  it("shows preview loading and empty states", async () => {
+    let resolvePreview: (value: null) => void = () => {};
+    remoteFileMocks.listRemoteFileHistory.mockResolvedValue([]);
+    remoteFileMocks.loadRemoteFilePreview.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvePreview = resolve;
+        }),
+    );
+    await renderSidebar();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "History" })[0]);
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Preview current version" }),
+      ).toBeInTheDocument(),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Preview current version" }),
+    );
+
+    expect(screen.getByText("Loading preview…")).toBeInTheDocument();
+    resolvePreview(null);
+    await waitFor(() =>
+      expect(screen.getByText("Preview is empty.")).toBeInTheDocument(),
+    );
+  });
+
+  it("shows preview errors", async () => {
+    remoteFileMocks.listRemoteFileHistory.mockResolvedValue([]);
+    remoteFileMocks.loadRemoteFilePreview.mockRejectedValue(
+      new Error("Preview unavailable"),
+    );
+    await renderSidebar();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "History" })[0]);
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Preview current version" }),
+      ).toBeInTheDocument(),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Preview current version" }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByText("Preview unavailable")).toBeInTheDocument(),
     );
   });
 

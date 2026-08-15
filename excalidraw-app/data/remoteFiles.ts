@@ -5,6 +5,10 @@ import { serializeAsJSON } from "@excalidraw/excalidraw/data/json";
 
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 
+import { renderRemoteFilePreviewSvg } from "./remoteFilePreview";
+
+export type RemoteFileDocument = Awaited<ReturnType<typeof loadFromBlob>>;
+
 export type RemoteFile = {
   name: string;
   size: number;
@@ -34,6 +38,9 @@ export class RemoteFileRequestError extends Error {
 
 const fileUrl = (name: string) => `/api/files/${encodeURIComponent(name)}`;
 
+const fileRevisionUrl = (name: string, revision: string) =>
+  `${fileUrl(name)}/history/${encodeURIComponent(revision)}`;
+
 const assertOk = async (response: Response) => {
   if (!response.ok) {
     throw new RemoteFileRequestError(
@@ -43,11 +50,32 @@ const assertOk = async (response: Response) => {
   }
 };
 
-const prepareRemoteFile = async (response: Response) => {
-  const blob = await response.blob();
-  const document = JSON.parse(await blob.text());
+const assertExpectedRevision = (
+  response: Response,
+  expectedRevision: string | null,
+) => {
+  const responseRevision = response.headers.get("ETag")?.replaceAll('"', "");
+  if (
+    expectedRevision &&
+    responseRevision &&
+    responseRevision !== expectedRevision
+  ) {
+    throw new Error("File changed since history was opened");
+  }
+};
 
-  if (document.source !== "excalidraw-mcp") {
+const prepareRemoteFile = async (response: Response) => {
+  const contents = await response.text();
+  const document = JSON.parse(contents);
+  const blob = new Blob([contents], {
+    type: response.headers.get("Content-Type") || "application/json",
+  });
+
+  if (
+    typeof document.source !== "string" ||
+    !document.source.startsWith("excalidraw-mcp") ||
+    !Array.isArray(document.elements)
+  ) {
     return blob;
   }
 
@@ -80,6 +108,54 @@ export const listRemoteFileHistory = async (
     updatedAt: archivedAt,
     current: false,
   }));
+};
+
+export const fetchRemoteFileRevisionBlob = async (
+  name: string,
+  revision: string,
+) => {
+  const response = await fetch(fileRevisionUrl(name, revision));
+  await assertOk(response);
+  assertExpectedRevision(response, revision);
+  return prepareRemoteFile(response);
+};
+
+export const loadRemoteFileRevision = async (
+  name: string,
+  revision: string | null,
+  expectedRevision: string | null = revision,
+): Promise<RemoteFileDocument> =>
+  loadFromBlob(
+    revision
+      ? await fetchRemoteFileRevisionBlob(name, revision)
+      : await fetchRemoteFileBlob(name, expectedRevision),
+    null,
+    null,
+  );
+
+const fetchRemoteFileBlob = async (
+  name: string,
+  expectedRevision: string | null = null,
+) => {
+  const response = await fetch(fileUrl(name));
+  await assertOk(response);
+  assertExpectedRevision(response, expectedRevision);
+  return prepareRemoteFile(response);
+};
+
+export const loadRemoteFilePreview = async (
+  name: string,
+  revision: string | null,
+  expectedRevision: string = revision || "",
+) => {
+  const document = await loadRemoteFileRevision(
+    name,
+    revision,
+    expectedRevision,
+  );
+  return document.elements.some((element) => !element.isDeleted)
+    ? renderRemoteFilePreviewSvg(document)
+    : null;
 };
 
 export const openRemoteFile = async (

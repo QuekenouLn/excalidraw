@@ -48,6 +48,19 @@ def resolve_history_request(request_path: str) -> tuple[Path, str | None]:
     raise ValueError("Invalid history path")
 
 
+def resolve_history_read_request(request_path: str) -> tuple[Path, str]:
+    relative_path = unquote(request_path.removeprefix("/files/")).strip()
+    parts = relative_path.split("/")
+    if len(parts) != 3 or parts[1] != "history":
+        raise ValueError("Invalid history path")
+    history_revision = parts[2]
+    if len(history_revision) != 64 or any(
+        character not in "0123456789abcdef" for character in history_revision
+    ):
+        raise ValueError("Invalid history revision")
+    return resolve_file(f"/files/{parts[0]}"), history_revision
+
+
 def file_history_dir(path: Path) -> Path:
     return history_dir / path.name
 
@@ -204,6 +217,29 @@ class Handler(BaseHTTPRequestHandler):
                 body = history_response(path)
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+
+        if "/history/" in parsed.path:
+            try:
+                path, history_revision = resolve_history_read_request(parsed.path)
+            except ValueError as error:
+                self.send_text(400, str(error))
+                return
+            with write_lock:
+                if not path.is_file():
+                    self.send_text(404, "File not found")
+                    return
+                entry = find_history_revision(path, history_revision)
+                if entry is None:
+                    self.send_text(404, "History revision not found")
+                    return
+                body = entry.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/vnd.excalidraw+json")
+            self.send_header("ETag", f'"{revision(body)}"')
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)

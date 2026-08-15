@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import ConfirmDialog from "@excalidraw/excalidraw/components/ConfirmDialog";
 import { Dialog } from "@excalidraw/excalidraw/components/Dialog";
@@ -9,6 +9,7 @@ import {
   deleteRemoteFile,
   listRemoteFileHistory,
   listRemoteFiles,
+  loadRemoteFilePreview,
   restoreRemoteFileRevision,
   type RemoteFile,
   type RemoteFileHistoryEntry,
@@ -37,6 +38,8 @@ export const formatRemoteFileSize = (size: number) => {
 };
 
 type FileHistoryEntry = RemoteFileHistoryEntry & { current: boolean };
+
+type PreviewStatus = "idle" | "loading" | "ready" | "empty" | "error";
 
 const currentHistoryEntry = (file: RemoteFile): FileHistoryEntry => ({
   revision: file.revision,
@@ -69,6 +72,12 @@ export const RemoteFilesSidebar = ({
   const [historyEntries, setHistoryEntries] = useState<FileHistoryEntry[]>([]);
   const [historyError, setHistoryError] = useState("");
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [previewEntry, setPreviewEntry] = useState<FileHistoryEntry | null>(
+    null,
+  );
+  const [previewError, setPreviewError] = useState("");
+  const [previewStatus, setPreviewStatus] = useState<PreviewStatus>("idle");
+  const previewRef = useRef<HTMLDivElement | null>(null);
   const [pendingRestore, setPendingRestore] = useState<FileHistoryEntry | null>(
     null,
   );
@@ -96,6 +105,47 @@ export const RemoteFilesSidebar = ({
   useEffect(() => {
     refresh();
   }, [refresh, revision]);
+
+  useEffect(() => {
+    const previewContainer = previewRef.current;
+    if (!historyFile || !previewEntry || !previewContainer) {
+      return;
+    }
+
+    let active = true;
+    previewContainer.replaceChildren();
+    setPreviewError("");
+    setPreviewStatus("loading");
+
+    loadRemoteFilePreview(
+      historyFile.name,
+      previewEntry.current ? null : previewEntry.revision,
+      previewEntry.revision,
+    )
+      .then((preview) => {
+        if (!active) {
+          return;
+        }
+        if (!preview) {
+          setPreviewStatus("empty");
+          return;
+        }
+        previewContainer.replaceChildren(preview);
+        setPreviewStatus("ready");
+      })
+      .catch((error: any) => {
+        if (!active) {
+          return;
+        }
+        setPreviewError(error.message);
+        setPreviewStatus("error");
+      });
+
+    return () => {
+      active = false;
+      previewContainer.replaceChildren();
+    };
+  }, [historyFile, previewEntry]);
 
   const confirmDelete = useCallback(async () => {
     if (!pendingDelete) {
@@ -146,6 +196,9 @@ export const RemoteFilesSidebar = ({
       setHistoryFile(file);
       setHistoryEntries([]);
       setHistoryError("");
+      setPreviewEntry(null);
+      setPreviewError("");
+      setPreviewStatus("idle");
       loadHistory(file);
     },
     [loadHistory],
@@ -267,11 +320,12 @@ export const RemoteFilesSidebar = ({
       {historyFile && (
         <Dialog
           className="remote-file-history"
-          size="small"
+          size={previewEntry ? "regular" : "small"}
           title="File history"
           onCloseRequest={() => {
             setHistoryFile(null);
             setPendingRestore(null);
+            setPreviewEntry(null);
           }}
         >
           <div className="remote-file-history__filename">
@@ -285,30 +339,56 @@ export const RemoteFilesSidebar = ({
             <div className="remote-file-history__list">
               {historyEntries.map((entry, index) => (
                 <div
-                  className="remote-file-history__item"
+                  className={`remote-file-history__item${
+                    previewEntry === entry
+                      ? " remote-file-history__item--selected"
+                      : ""
+                  }`}
                   key={`${entry.revision}-${entry.updatedAt}-${index}`}
                 >
-                  <div>
+                  <div className="remote-file-history__details">
                     <time dateTime={entry.updatedAt}>
                       {new Date(entry.updatedAt).toLocaleString()}
                     </time>
                     <span>{formatRemoteFileSize(entry.size)}</span>
                   </div>
-                  {entry.current ? (
-                    <strong className="remote-file-history__current">
-                      Current
-                    </strong>
-                  ) : (
+                  <div className="remote-file-history__actions">
+                    {entry.current && (
+                      <strong className="remote-file-history__current">
+                        Current
+                      </strong>
+                    )}
                     <button
                       type="button"
-                      disabled={restoringRevision !== null}
-                      onClick={() => setPendingRestore(entry)}
+                      aria-label={
+                        entry.current
+                          ? "Preview current version"
+                          : `Preview version from ${new Date(
+                              entry.updatedAt,
+                            ).toLocaleString()}`
+                      }
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setPreviewEntry(entry);
+                      }}
                     >
-                      {restoringRevision === entry.revision
-                        ? "Restoring…"
-                        : "Restore"}
+                      Preview
                     </button>
-                  )}
+                    {!entry.current && (
+                      <button
+                        type="button"
+                        disabled={restoringRevision !== null}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setPendingRestore(entry);
+                        }}
+                      >
+                        {restoringRevision === entry.revision
+                          ? "Restoring…"
+                          : "Restore"}
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
               {historyEntries.length === 1 && (
@@ -318,6 +398,36 @@ export const RemoteFilesSidebar = ({
           )}
           {!historyLoading && !historyError && historyEntries.length === 0 && (
             <p className="remote-files-status">No file history.</p>
+          )}
+          {previewEntry && (
+            <section
+              className="remote-file-history__preview"
+              aria-label="File version preview"
+            >
+              <div className="remote-file-history__preview-header">
+                <strong>
+                  {previewEntry.current
+                    ? "Current version"
+                    : new Date(previewEntry.updatedAt).toLocaleString()}
+                </strong>
+                <span>Preview</span>
+              </div>
+              <div className="remote-file-history__preview-content">
+                {previewStatus === "loading" && (
+                  <p className="remote-files-status">Loading preview…</p>
+                )}
+                {previewStatus === "error" && (
+                  <p className="remote-files-error">{previewError}</p>
+                )}
+                {previewStatus === "empty" && (
+                  <p className="remote-files-status">Preview is empty.</p>
+                )}
+                <div
+                  className="remote-file-history__preview-canvas"
+                  ref={previewRef}
+                />
+              </div>
+            </section>
           )}
         </Dialog>
       )}

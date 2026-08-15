@@ -116,6 +116,50 @@ class RemoteStorageHistoryTest(unittest.TestCase):
         )
         return status, json.loads(body) if status == 200 else body
 
+    def history_revision(self, server, name, history_revision):
+        return server.request(
+            "GET", f"{self.file_path(name)}/history/{history_revision}"
+        )
+
+    def test_reads_history_revision_and_rejects_invalid_or_missing_revisions(self):
+        name = "preview.excalidraw"
+        first = excalidraw_body("first")
+        second = excalidraw_body("second")
+        first_revision = revision(first)
+
+        with ServerProcess(self.temporary_directory.name, 1024 * 1024) as server:
+            status, _, _ = self.put(server, name, first)
+            self.assertEqual(status, 200)
+            status, _, _ = self.put(server, name, second, first_revision)
+            self.assertEqual(status, 200)
+
+            status, headers, body = self.history_revision(
+                server, name, first_revision
+            )
+            self.assertEqual(status, 200)
+            self.assertEqual(body, first)
+            self.assertEqual(
+                headers["Content-Type"], "application/vnd.excalidraw+json"
+            )
+            self.assertEqual(headers["ETag"], f'"{first_revision}"')
+
+            for invalid_revision in (
+                "short",
+                first_revision.upper(),
+                "g" * 64,
+            ):
+                status, _, _ = self.history_revision(
+                    server, name, invalid_revision
+                )
+                self.assertEqual(status, 400)
+
+            status, _, _ = self.history_revision(server, name, "0" * 64)
+            self.assertEqual(status, 404)
+            status, _, _ = self.history_revision(
+                server, "missing.excalidraw", first_revision
+            )
+            self.assertEqual(status, 404)
+
     def test_archives_lists_restores_persists_and_cascades_delete(self):
         name = "persistent.excalidraw"
         first = excalidraw_body("first")

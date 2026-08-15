@@ -150,7 +150,7 @@
 
   .remote-file-history__list {
     display: flex;
-    max-height: min(55vh, 28rem);
+    max-height: min(32vh, 18rem);
     flex-direction: column;
     gap: 0.5rem;
     overflow-y: auto;
@@ -165,7 +165,12 @@
     border: 1px solid var(--default-border-color);
     border-radius: var(--border-radius-md);
 
-    > div {
+    &--selected {
+      border-color: var(--color-primary);
+      background: var(--color-primary-light);
+    }
+
+    .remote-file-history__details {
       display: flex;
       min-width: 0;
       flex-direction: column;
@@ -197,9 +202,80 @@
     }
   }
 
+  .remote-file-history__actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
   .remote-file-history__current {
     flex: 0 0 auto;
     color: var(--color-primary);
     font-size: 0.75rem;
+  }
+
+  .remote-file-history__preview {
+    margin-top: 0.75rem;
+    border: 1px solid var(--default-border-color);
+    border-radius: var(--border-radius-md);
+    overflow: hidden;
+  }
+
+  .remote-file-history__preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.5rem 0.625rem;
+    border-bottom: 1px solid var(--default-border-color);
+
+    strong {
+      overflow: hidden;
+      font-size: 0.875rem;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    span {
+      color: var(--text-secondary-color);
+      font-size: 0.75rem;
+    }
+  }
+
+  .remote-file-history__preview-content {
+    position: relative;
+    display: flex;
+    height: min(40vh, 28rem);
+    min-height: 12rem;
+    max-height: 40vh;
+    align-items: center;
+    justify-content: center;
+    overflow: auto;
+    background: var(--island-bg-color);
+
+    > p {
+      margin: 0;
+      padding: 1rem;
+    }
+  }
+
+  .remote-file-history__preview-canvas {
+    display: flex;
+    width: 100%;
+    min-height: 12rem;
+    align-items: center;
+    justify-content: center;
+
+    &:empty {
+      display: none;
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      max-height: 40vh;
+    }
   }
 }
