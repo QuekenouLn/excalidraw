@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import ConfirmDialog from "@excalidraw/excalidraw/components/ConfirmDialog";
 import { TextField } from "@excalidraw/excalidraw/components/TextField";
+import { copyTextToSystemClipboard } from "@excalidraw/excalidraw/clipboard";
 
 import {
   deleteRemoteFile,
@@ -17,6 +18,9 @@ export const filterRemoteFiles = (files: RemoteFile[], query: string) => {
       )
     : files;
 };
+
+export const copyRemoteFilename = (name: string) =>
+  copyTextToSystemClipboard(name);
 
 export const RemoteFilesSidebar = ({
   activeFile,
@@ -73,6 +77,15 @@ export const RemoteFilesSidebar = ({
     }
   }, [onDelete, pendingDelete]);
 
+  const copyFilename = useCallback(async (name: string) => {
+    try {
+      await copyRemoteFilename(name);
+      setError("");
+    } catch (error: any) {
+      setError(error.message);
+    }
+  }, []);
+
   return (
     <div className="remote-files-sidebar">
       <div className="remote-files-sidebar__header">
@@ -103,7 +116,9 @@ export const RemoteFilesSidebar = ({
         <p className="remote-files-status">No remote files yet.</p>
       )}
       {!loading && !error && files.length > 0 && visibleFiles.length === 0 && (
-        <p className="remote-files-status">No remote files match “{query.trim()}”.</p>
+        <p className="remote-files-status">
+          No remote files match “{query.trim()}”.
+        </p>
       )}
       <div className="remote-files-list">
         {visibleFiles.map((file) => (
@@ -113,11 +128,23 @@ export const RemoteFilesSidebar = ({
             }`}
             key={file.name}
           >
-            <button className="remote-files-name" onClick={() => onOpen(file.name)}>
+            <button
+              className="remote-files-name"
+              onClick={() => onOpen(file.name)}
+            >
               {file.name}
             </button>
             <span>{new Date(file.updatedAt).toLocaleString()}</span>
             <button
+              type="button"
+              aria-label={`Copy filename ${file.name}`}
+              title="Copy filename"
+              onClick={() => copyFilename(file.name)}
+            >
+              Copy
+            </button>
+            <button
+              type="button"
               className="remote-files-delete"
               onClick={() => setPendingDelete(file)}
             >
@@ -133,8 +160,8 @@ export const RemoteFilesSidebar = ({
           onCancel={() => setPendingDelete(null)}
           onConfirm={confirmDelete}
         >
-          This will permanently delete “{pendingDelete.name}”. This action cannot
-          be undone.
+          This will permanently delete “{pendingDelete.name}”. This action
+          cannot be undone.
         </ConfirmDialog>
       )}
     </div>

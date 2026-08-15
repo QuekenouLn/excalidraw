@@ -1,5 +1,14 @@
+import { copyTextToSystemClipboard } from "@excalidraw/excalidraw/clipboard";
+
 import { deleteRemoteFile, type RemoteFile } from "../data/remoteFiles";
-import { filterRemoteFiles } from "../components/RemoteFilesSidebar";
+import {
+  copyRemoteFilename,
+  filterRemoteFiles,
+} from "../components/RemoteFilesSidebar";
+
+vi.mock("@excalidraw/excalidraw/clipboard", () => ({
+  copyTextToSystemClipboard: vi.fn(),
+}));
 
 const files: RemoteFile[] = [
   {
@@ -38,5 +47,13 @@ describe("Remote files", () => {
       },
     );
     fetchMock.mockRestore();
+  });
+
+  it("copies the complete filename", async () => {
+    await copyRemoteFilename("Architecture.excalidraw");
+
+    expect(copyTextToSystemClipboard).toHaveBeenCalledWith(
+      "Architecture.excalidraw",
+    );
   });
 });
