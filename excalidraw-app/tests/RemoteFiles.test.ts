@@ -98,6 +98,7 @@ describe("Remote files", () => {
   const renderSidebar = async (
     onRestore = vi.fn().mockResolvedValue(undefined),
     isDirty = false,
+    onOpen = vi.fn(),
   ) => {
     await render(
       React.createElement(
@@ -107,7 +108,7 @@ describe("Remote files", () => {
           activeFile: "Architecture.excalidraw",
           isDirty,
           onDelete: vi.fn(),
-          onOpen: vi.fn(),
+          onOpen,
           onRestore,
           revision: 0,
         }),
@@ -137,6 +138,16 @@ describe("Remote files", () => {
       "History",
       "Delete",
     ]);
+  });
+
+  it("opens the selected remote file", async () => {
+    const onOpen = vi.fn();
+    await renderSidebar(undefined, false, onOpen);
+
+    fireEvent.click(screen.getByRole("button", { name: "notes.excalidraw" }));
+
+    expect(onOpen).toHaveBeenCalledTimes(1);
+    expect(onOpen).toHaveBeenCalledWith("notes.excalidraw");
   });
 
   it("shows loading and empty file history states", async () => {
