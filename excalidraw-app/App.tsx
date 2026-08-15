@@ -917,6 +917,26 @@ const ExcalidrawWrapper = () => {
     [activeRemoteFile, excalidrawAPI],
   );
 
+  const handleRestoreRemoteFile = useCallback(
+    async (name: string, revision: string) => {
+      setRemoteFilesRevision((revision) => revision + 1);
+
+      if (name === activeRemoteFile) {
+        if (!excalidrawAPI) {
+          throw new Error(`Unable to reload ${name}`);
+        }
+        const loadedRevision = await openRemoteFile(name, excalidrawAPI);
+        setActiveRemoteRevision(loadedRevision || revision);
+        markCurrentSceneSaved();
+        excalidrawAPI.setToast({ message: `Restored ${name}` });
+        return;
+      }
+
+      excalidrawAPI?.setToast({ message: `Restored ${name}` });
+    },
+    [activeRemoteFile, excalidrawAPI, markCurrentSceneSaved],
+  );
+
   const handleSaveRemoteFile = useCallback(async (): Promise<boolean> => {
     if (!excalidrawAPI) {
       return false;
@@ -1242,6 +1262,7 @@ const ExcalidrawWrapper = () => {
           remoteFileDirty={remoteFileDirty}
           onDeleteRemoteFile={handleDeleteRemoteFile}
           onOpenRemoteFile={handleOpenRemoteFile}
+          onRestoreRemoteFile={handleRestoreRemoteFile}
           remoteFilesRevision={remoteFilesRevision}
         />
 

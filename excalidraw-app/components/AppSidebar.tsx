@@ -72,12 +72,14 @@ export const AppSidebar = ({
   remoteFileDirty,
   onDeleteRemoteFile,
   onOpenRemoteFile,
+  onRestoreRemoteFile,
   remoteFilesRevision,
 }: {
   activeRemoteFile: string | null;
   remoteFileDirty: boolean;
   onDeleteRemoteFile: (name: string) => void;
   onOpenRemoteFile: (name: string) => void;
+  onRestoreRemoteFile: (name: string, revision: string) => Promise<void>;
   remoteFilesRevision: number;
 }) => {
   const { theme, openSidebar } = useUIAppState();
@@ -111,6 +113,7 @@ export const AppSidebar = ({
           isDirty={remoteFileDirty}
           onDelete={onDeleteRemoteFile}
           onOpen={onOpenRemoteFile}
+          onRestore={onRestoreRemoteFile}
           revision={remoteFilesRevision}
         />
       </Sidebar.Tab>

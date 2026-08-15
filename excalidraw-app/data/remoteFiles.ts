@@ -1,8 +1,9 @@
-import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
-
 import { convertToExcalidrawElements } from "@excalidraw/excalidraw";
+
 import { loadFromBlob } from "@excalidraw/excalidraw/data/blob";
 import { serializeAsJSON } from "@excalidraw/excalidraw/data/json";
+
+import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 
 export type RemoteFile = {
   name: string;
@@ -11,11 +12,34 @@ export type RemoteFile = {
   revision: string;
 };
 
+export type RemoteFileHistoryEntry = {
+  revision: string;
+  size: number;
+  updatedAt: string;
+  current: boolean;
+};
+
+type RemoteFileHistoryResponseEntry = {
+  revision: string;
+  size: number;
+  archivedAt: string;
+};
+
+export class RemoteFileRequestError extends Error {
+  constructor(message: string, public readonly status: number) {
+    super(message);
+    this.name = "RemoteFileRequestError";
+  }
+}
+
 const fileUrl = (name: string) => `/api/files/${encodeURIComponent(name)}`;
 
 const assertOk = async (response: Response) => {
   if (!response.ok) {
-    throw new Error((await response.text()) || `Request failed: ${response.status}`);
+    throw new RemoteFileRequestError(
+      (await response.text()) || `Request failed: ${response.status}`,
+      response.status,
+    );
   }
 };
 
@@ -42,6 +66,20 @@ export const listRemoteFiles = async (): Promise<RemoteFile[]> => {
   const response = await fetch("/api/files");
   await assertOk(response);
   return response.json();
+};
+
+export const listRemoteFileHistory = async (
+  name: string,
+): Promise<RemoteFileHistoryEntry[]> => {
+  const response = await fetch(`${fileUrl(name)}/history`);
+  await assertOk(response);
+  const history = (await response.json()) as RemoteFileHistoryResponseEntry[];
+  return history.map(({ revision, size, archivedAt }) => ({
+    revision,
+    size,
+    updatedAt: archivedAt,
+    current: false,
+  }));
 };
 
 export const openRemoteFile = async (
@@ -87,6 +125,22 @@ export const saveRemoteFile = async (
     },
     body,
   });
+  await assertOk(response);
+  return (await response.json()) as { revision: string };
+};
+
+export const restoreRemoteFileRevision = async (
+  name: string,
+  revision: string,
+  currentRevision: string,
+) => {
+  const response = await fetch(
+    `${fileUrl(name)}/history/${encodeURIComponent(revision)}/restore`,
+    {
+      method: "POST",
+      headers: { "If-Match": currentRevision },
+    },
+  );
   await assertOk(response);
   return (await response.json()) as { revision: string };
 };

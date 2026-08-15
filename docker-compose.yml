@@ -17,6 +17,7 @@ services:
     environment:
       STORAGE_DIR: /data
       MAX_FILE_SIZE: 104857600
+      MAX_HISTORY_BYTES: 1073741824
     healthcheck:
       test:
         - CMD

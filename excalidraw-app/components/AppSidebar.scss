@@ -138,4 +138,68 @@
     overflow-x: hidden;
     overflow-y: auto;
   }
+
+  .remote-file-history__filename {
+    margin-bottom: 0.75rem;
+    overflow: hidden;
+    color: var(--color-primary);
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .remote-file-history__list {
+    display: flex;
+    max-height: min(55vh, 28rem);
+    flex-direction: column;
+    gap: 0.5rem;
+    overflow-y: auto;
+  }
+
+  .remote-file-history__item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.625rem;
+    border: 1px solid var(--default-border-color);
+    border-radius: var(--border-radius-md);
+
+    > div {
+      display: flex;
+      min-width: 0;
+      flex-direction: column;
+      gap: 0.2rem;
+    }
+
+    time {
+      font-size: 0.875rem;
+    }
+
+    span {
+      color: var(--text-secondary-color);
+      font-size: 0.75rem;
+    }
+
+    button {
+      flex: 0 0 auto;
+      border: 0;
+      border-radius: var(--border-radius-md);
+      padding: 0.4rem 0.6rem;
+      background: var(--button-gray-1);
+      color: inherit;
+      cursor: pointer;
+
+      &:disabled {
+        cursor: default;
+        opacity: 0.6;
+      }
+    }
+  }
+
+  .remote-file-history__current {
+    flex: 0 0 auto;
+    color: var(--color-primary);
+    font-size: 0.75rem;
+  }
 }
