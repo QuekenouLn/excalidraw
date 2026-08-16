@@ -169,6 +169,11 @@
           flex-basis: 100%;
           justify-content: center;
         }
+
+        &__group {
+          display: flex;
+          gap: 4px;
+        }
       }
     }
   }
