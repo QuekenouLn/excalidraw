@@ -24,7 +24,7 @@ import type {
 
 import {
   copyBlobToClipboardAsPng,
-  copyBlobToClipboardAsSvg,
+  copyTextToSystemClipboard,
 } from "../clipboard";
 
 import { t } from "../i18n";
@@ -155,7 +155,7 @@ export const exportCanvas = async (
     } else if (type === "clipboard-svg") {
       const svg = await svgPromise.then((svg) => svg.outerHTML);
       try {
-        await copyBlobToClipboardAsSvg(svg);
+        await copyTextToSystemClipboard(svg);
       } catch (e) {
         throw new Error(t("errors.copyToSystemClipboardFailed"));
       }
@@ -191,7 +191,7 @@ export const exportCanvas = async (
       mimeTypes: [IMAGE_MIME_TYPES.png],
       fileHandle,
     });
-  } else if (type === "clipboard" || type === "clipboard-png") {
+  } else if (type === "clipboard") {
     try {
       const blob = canvasToBlob(tempCanvas);
       await copyBlobToClipboardAsPng(blob);

@@ -9,7 +9,6 @@ import {
   copyTextToSystemClipboard,
   copyToClipboard,
   createPasteEvent,
-  probablySupportsClipboardBlob,
   probablySupportsClipboardWriteText,
   readSystemClipboard,
 } from "../clipboard";
@@ -184,7 +183,7 @@ export const actionCopyAsSvg = register({
     }
   },
   predicate: (elements) => {
-    return probablySupportsClipboardWriteText && elements.length > 0;
+    return elements.length > 0;
   },
   keywords: ["svg", "clipboard", "copy"],
 });
@@ -245,7 +244,7 @@ export const actionCopyAsPng = register({
     }
   },
   predicate: (elements) => {
-    return probablySupportsClipboardBlob && elements.length > 0;
+    return elements.length > 0;
   },
   keyTest: (event) => event.code === CODES.C && event.altKey && event.shiftKey,
   keywords: ["png", "clipboard", "copy"],

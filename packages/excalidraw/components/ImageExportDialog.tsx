@@ -18,10 +18,7 @@ import {
   actionChangeExportScale,
   actionChangeProjectName,
 } from "../actions/actionExport";
-import {
-  probablySupportsClipboardBlob,
-  probablySupportsClipboardWriteText,
-} from "../clipboard";
+import { probablySupportsClipboardBlob } from "../clipboard";
 import { prepareElementsForExport } from "../data";
 import { canvasToBlob } from "../data/blob";
 import { nativeFileSystemSupported } from "../data/filesystem";
@@ -93,31 +90,19 @@ const ImageExportModal = ({
   const previewRenderRequestIdRef = useRef(0);
   const [renderError, setRenderError] = useState<Error | null>(null);
 
-  const {
-    onCopy: onCopyPng,
-    copyStatus: copyPngStatus,
-    resetCopyStatus: resetCopyPngStatus,
-  } = useCopyStatus();
-  const {
-    onCopy: onCopySvg,
-    copyStatus: copySvgStatus,
-    resetCopyStatus: resetCopySvgStatus,
-  } = useCopyStatus();
+  const { onCopy, copyStatus, resetCopyStatus } = useCopyStatus();
 
   useEffect(() => {
     // if user changes setting right after export to clipboard, reset the status
     // so they don't have to wait for the timeout to click the button again
-    resetCopyPngStatus();
-    resetCopySvgStatus();
+    resetCopyStatus();
   }, [
     projectName,
     exportWithBackground,
     exportWithDarkMode,
     exportScale,
     embedScene,
-    exportSelectionOnly,
-    resetCopyPngStatus,
-    resetCopySvgStatus,
+    resetCopyStatus,
   ]);
 
   const { exportedElements, exportingFrame } = prepareElementsForExport(
@@ -316,74 +301,50 @@ const ImageExportModal = ({
         </ExportSetting>
 
         <div className="ImageExportModal__settings__buttons">
-          <div className="ImageExportModal__settings__buttons__group">
+          <FilledButton
+            className="ImageExportModal__settings__buttons__button"
+            label={t("imageExportDialog.title.exportToPng")}
+            onClick={() =>
+              onExportImage(EXPORT_IMAGE_TYPES.png, exportedElements, {
+                exportingFrame,
+              })
+            }
+            icon={downloadIcon}
+          >
+            {t("imageExportDialog.button.exportToPng")}
+          </FilledButton>
+          <FilledButton
+            className="ImageExportModal__settings__buttons__button"
+            label={t("imageExportDialog.title.exportToSvg")}
+            onClick={() =>
+              onExportImage(EXPORT_IMAGE_TYPES.svg, exportedElements, {
+                exportingFrame,
+              })
+            }
+            icon={downloadIcon}
+          >
+            {t("imageExportDialog.button.exportToSvg")}
+          </FilledButton>
+          {(probablySupportsClipboardBlob || isFirefox) && (
             <FilledButton
               className="ImageExportModal__settings__buttons__button"
-              label={t("imageExportDialog.title.exportToPng")}
-              onClick={() =>
-                onExportImage(EXPORT_IMAGE_TYPES.png, exportedElements, {
-                  exportingFrame,
-                })
-              }
-              icon={downloadIcon}
+              label={t("imageExportDialog.title.copyPngToClipboard")}
+              status={copyStatus}
+              onClick={async () => {
+                await onExportImage(
+                  EXPORT_IMAGE_TYPES.clipboard,
+                  exportedElements,
+                  {
+                    exportingFrame,
+                  },
+                );
+                onCopy();
+              }}
+              icon={copyIcon}
             >
-              {t("imageExportDialog.button.exportToPng")}
+              {t("imageExportDialog.button.copyPngToClipboard")}
             </FilledButton>
-            {(probablySupportsClipboardBlob || isFirefox) && (
-              <Tooltip label={t("imageExportDialog.title.copyPngToClipboard")}>
-                <FilledButton
-                  label={t("imageExportDialog.title.copyPngToClipboard")}
-                  status={copyPngStatus}
-                  variant="icon"
-                  onClick={async () => {
-                    await onExportImage(
-                      EXPORT_IMAGE_TYPES.clipboardPng,
-                      exportedElements,
-                      {
-                        exportingFrame,
-                      },
-                    );
-                    onCopyPng();
-                  }}
-                  icon={copyIcon}
-                />
-              </Tooltip>
-            )}
-          </div>
-          <div className="ImageExportModal__settings__buttons__group">
-            <FilledButton
-              className="ImageExportModal__settings__buttons__button"
-              label={t("imageExportDialog.title.exportToSvg")}
-              onClick={() =>
-                onExportImage(EXPORT_IMAGE_TYPES.svg, exportedElements, {
-                  exportingFrame,
-                })
-              }
-              icon={downloadIcon}
-            >
-              {t("imageExportDialog.button.exportToSvg")}
-            </FilledButton>
-            {probablySupportsClipboardWriteText && (
-              <Tooltip label={t("labels.copyAsSvg")}>
-                <FilledButton
-                  label={t("labels.copyAsSvg")}
-                  status={copySvgStatus}
-                  variant="icon"
-                  onClick={async () => {
-                    await onExportImage(
-                      EXPORT_IMAGE_TYPES.clipboardSvg,
-                      exportedElements,
-                      {
-                        exportingFrame,
-                      },
-                    );
-                    onCopySvg();
-                  }}
-                  icon={copyIcon}
-                />
-              </Tooltip>
-            )}
-          </div>
+          )}
         </div>
       </div>
     </div>

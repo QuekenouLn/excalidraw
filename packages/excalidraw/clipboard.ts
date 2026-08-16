@@ -584,29 +584,6 @@ export const copyBlobToClipboardAsPng = async (blob: Blob | Promise<Blob>) => {
   }
 };
 
-export const copyBlobToClipboardAsSvg = async (svg: string) => {
-  const copyAsText = () => copyTextToSystemClipboard(svg);
-
-  if (
-    typeof ClipboardItem === "undefined" ||
-    (typeof ClipboardItem.supports === "function" &&
-      !ClipboardItem.supports(MIME_TYPES.svg))
-  ) {
-    return copyAsText();
-  }
-
-  try {
-    await navigator.clipboard.write([
-      new ClipboardItem({
-        [MIME_TYPES.svg]: new Blob([svg], { type: MIME_TYPES.svg }),
-        [MIME_TYPES.text]: new Blob([svg], { type: MIME_TYPES.text }),
-      }),
-    ]);
-  } catch {
-    await copyAsText();
-  }
-};
-
 export const copyTextToSystemClipboard = async <
   MimeType extends ValueOf<typeof STRING_MIME_TYPES>,
 >(
