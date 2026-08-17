@@ -10,6 +10,22 @@ services:
       remote-storage:
         condition: service_healthy
 
+  excalidraw-https:
+    image: nginx:stable-alpine-slim@sha256:2c605dbeab79a6b2a63340474fe58119d0ef95bdc4b1f41df0aa689659b3d13b
+    container_name: excalidraw-https
+    profiles:
+      - https
+    ports:
+      - "443:443"
+    restart: unless-stopped
+    depends_on:
+      excalidraw:
+        condition: service_healthy
+    volumes:
+      - ./deploy/nginx-https.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./deploy/certs/excalidraw.office.test.crt:/etc/nginx/certs/excalidraw.office.test.crt:ro
+      - ./deploy/certs/excalidraw.office.test.key:/etc/nginx/certs/excalidraw.office.test.key:ro
+
   remote-storage:
     build: ./remote-storage
     container_name: excalidraw-storage
