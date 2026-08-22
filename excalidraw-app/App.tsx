@@ -151,6 +151,7 @@ import { ExcalidrawPlusPromoBanner } from "./components/ExcalidrawPlusPromoBanne
 import { AppSidebar } from "./components/AppSidebar";
 import {
   openRemoteFile,
+  RemoteFileRequestError,
   saveRemoteFile,
 } from "./data/remoteFiles";
 
@@ -942,30 +943,75 @@ const ExcalidrawWrapper = () => {
       return false;
     }
     const requestedName =
-      activeRemoteFile || window.prompt("Remote filename", excalidrawAPI.getName());
+      activeRemoteFile ||
+      window.prompt("Remote filename", excalidrawAPI.getName());
     if (!requestedName) {
       return false;
     }
     const name = requestedName.endsWith(".excalidraw")
       ? requestedName
       : `${requestedName}.excalidraw`;
-    try {
-      const result = await saveRemoteFile(
-        name,
-        excalidrawAPI,
-        name === activeRemoteFile ? activeRemoteRevision : null,
-      );
+    const completeSave = (result: { revision: string }) => {
       setActiveRemoteFile(name);
       setActiveRemoteRevision(result.revision);
       markCurrentSceneSaved();
       setRemoteFilesRevision((revision) => revision + 1);
       excalidrawAPI.setToast({ message: `Saved ${name}` });
+    };
+    try {
+      const expectedRevision =
+        name === activeRemoteFile ? activeRemoteRevision : null;
+      const result = await saveRemoteFile(
+        name,
+        excalidrawAPI,
+        expectedRevision,
+      );
+      completeSave(result);
       return true;
     } catch (error: any) {
+      if (
+        error instanceof RemoteFileRequestError &&
+        error.status === 412 &&
+        error.message === "File already exists" &&
+        error.revision
+      ) {
+        const confirmed = await openConfirmModal({
+          title: "Overwrite remote file?",
+          description: (
+            <>
+              A remote file named <strong>{name}</strong> already exists. Its
+              current version will remain available in File history, and this
+              drawing will become the new current version.
+            </>
+          ),
+          actionLabel: "Overwrite",
+          color: "warning",
+        });
+        if (!confirmed) {
+          return false;
+        }
+        try {
+          const result = await saveRemoteFile(
+            name,
+            excalidrawAPI,
+            error.revision,
+          );
+          completeSave(result);
+          return true;
+        } catch (overwriteError: any) {
+          setErrorMessage(overwriteError.message);
+          return false;
+        }
+      }
       setErrorMessage(error.message);
       return false;
     }
-  }, [activeRemoteFile, activeRemoteRevision, excalidrawAPI, markCurrentSceneSaved]);
+  }, [
+    activeRemoteFile,
+    activeRemoteRevision,
+    excalidrawAPI,
+    markCurrentSceneSaved,
+  ]);
 
   const openRemoteSidebar = useCallback(() => {
     excalidrawAPI?.updateScene({

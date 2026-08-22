@@ -30,7 +30,11 @@ type RemoteFileHistoryResponseEntry = {
 };
 
 export class RemoteFileRequestError extends Error {
-  constructor(message: string, public readonly status: number) {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly revision: string | null = null,
+  ) {
     super(message);
     this.name = "RemoteFileRequestError";
   }
@@ -46,6 +50,7 @@ const assertOk = async (response: Response) => {
     throw new RemoteFileRequestError(
       (await response.text()) || `Request failed: ${response.status}`,
       response.status,
+      response.headers.get("ETag")?.replaceAll('"', "") || null,
     );
   }
 };

@@ -160,6 +160,27 @@ class RemoteStorageHistoryTest(unittest.TestCase):
             )
             self.assertEqual(status, 404)
 
+    def test_create_conflict_returns_revision_for_confirmed_overwrite(self):
+        name = "overwrite.excalidraw"
+        first = excalidraw_body("first")
+        second = excalidraw_body("second")
+        first_revision = revision(first)
+
+        with ServerProcess(self.temporary_directory.name, 1024 * 1024) as server:
+            status, _, _ = self.put(server, name, first)
+            self.assertEqual(status, 200)
+
+            status, headers, body = self.put(server, name, second)
+            self.assertEqual(status, 412)
+            self.assertEqual(body, b"File already exists")
+            self.assertEqual(headers["ETag"], f'"{first_revision}"')
+
+            status, _, _ = self.put(server, name, second, first_revision)
+            self.assertEqual(status, 200)
+            status, items = self.history(server, name)
+            self.assertEqual(status, 200)
+            self.assertEqual([item["revision"] for item in items], [first_revision])
+
     def test_archives_lists_restores_persists_and_cascades_delete(self):
         name = "persistent.excalidraw"
         first = excalidraw_body("first")

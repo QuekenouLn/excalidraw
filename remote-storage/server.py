@@ -170,10 +170,14 @@ def find_history_revision(path: Path, history_revision: str) -> Path | None:
 
 
 class Handler(BaseHTTPRequestHandler):
-    def send_text(self, status: int, message: str) -> None:
+    def send_text(
+        self, status: int, message: str, headers: dict[str, str] | None = None
+    ) -> None:
         body = message.encode()
         self.send_response(status)
         self.send_header("Content-Type", "text/plain; charset=utf-8")
+        for name, value in (headers or {}).items():
+            self.send_header(name, value)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -288,7 +292,11 @@ class Handler(BaseHTTPRequestHandler):
                 expected_revision = expected_revision.strip('"')
                 if expected_revision == "*":
                     if current_revision is not None:
-                        self.send_text(412, "File already exists")
+                        self.send_text(
+                            412,
+                            "File already exists",
+                            {"ETag": f'"{current_revision}"'},
+                        )
                         return
                 elif current_revision != expected_revision:
                     self.send_text(412, "File changed since it was opened")

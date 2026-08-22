@@ -200,4 +200,26 @@ describe("Remote files data layer", () => {
       status: 412,
     });
   });
+
+  it("preserves the current revision for overwrite confirmation", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("File already exists", {
+        status: 412,
+        headers: { ETag: '"current-revision"' },
+      }),
+    );
+
+    const error = await restoreRemoteFileRevision(
+      "Team plan.excalidraw",
+      "archived-revision",
+      "stale-current-revision",
+    ).catch((caughtError) => caughtError);
+
+    expect(error).toBeInstanceOf(RemoteFileRequestError);
+    expect(error).toMatchObject({
+      message: "File already exists",
+      status: 412,
+      revision: "current-revision",
+    });
+  });
 });
