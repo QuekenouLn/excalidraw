@@ -162,6 +162,57 @@ describe("Remote files data layer", () => {
     expect(document.files).toEqual(files);
   });
 
+  it("preserves complete native MCP elements when opening on WEB", async () => {
+    const elements = [
+      {
+        id: "container",
+        type: "rectangle",
+        x: 100,
+        y: 200,
+        width: 240,
+        height: 100,
+        version: 3,
+        versionNonce: 10,
+        boundElements: [{ id: "label", type: "text" }],
+      },
+      {
+        id: "label",
+        type: "text",
+        x: 170,
+        y: 238,
+        width: 100,
+        height: 24,
+        version: 3,
+        versionNonce: 11,
+        text: "平台防御",
+        originalText: "平台防御",
+        fontSize: 20,
+        fontFamily: 11,
+        lineHeight: 1.2,
+        textAlign: "center",
+        verticalAlign: "middle",
+        containerId: "container",
+        autoResize: true,
+      },
+    ];
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({
+        type: "excalidraw",
+        version: 2,
+        source: "excalidraw-mcp-native",
+        elements,
+        appState: {},
+        files: {},
+      }),
+    );
+
+    await loadRemoteFileRevision("MCP native.excalidraw", "revision-a");
+
+    const [blob] = blobMocks.loadFromBlob.mock.calls[0];
+    const document = JSON.parse(await readBlob(blob));
+    expect(document.elements).toEqual(elements);
+  });
+
   it("rejects a current preview that changed after history opened", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(

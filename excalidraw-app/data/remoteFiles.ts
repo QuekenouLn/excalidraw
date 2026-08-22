@@ -84,13 +84,19 @@ const prepareRemoteFile = async (response: Response) => {
     return blob;
   }
 
-  document.elements = convertToExcalidrawElements(
-    document.elements.filter(
-      (element: { type: string }) =>
-        !["cameraUpdate", "delete", "restoreCheckpoint"].includes(element.type),
-    ),
-    { regenerateIds: false },
+  const elements = document.elements.filter(
+    (element: { type: string }) =>
+      !["cameraUpdate", "delete", "restoreCheckpoint"].includes(element.type),
   );
+  const isCompleteNativeScene = elements.every(
+    (element: { version?: unknown; versionNonce?: unknown }) =>
+      Number.isInteger(element.version) &&
+      Number.isInteger(element.versionNonce),
+  );
+
+  document.elements = isCompleteNativeScene
+    ? elements
+    : convertToExcalidrawElements(elements, { regenerateIds: false });
 
   return new Blob([JSON.stringify(document)], { type: "application/json" });
 };

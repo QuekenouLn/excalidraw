@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { convertRawElements } from "../../integrations/excalidraw-mcp/src/element-conversion";
+import {
+  convertRawElements,
+  refreshRestoredElements,
+} from "../../integrations/excalidraw-mcp/src/element-conversion";
 
 describe("convertRawElements", () => {
   it("preserves labels while creating native two-way arrow bindings", () => {
@@ -155,5 +158,53 @@ describe("convertRawElements", () => {
     expect(
       convertRawElements([nativeText], { centerNewText: false })[0],
     ).toEqual(nativeText);
+  });
+
+  it("remeasures restored bound text before rendering", () => {
+    const restored = refreshRestoredElements([
+      {
+        type: "rectangle",
+        id: "container",
+        x: 100,
+        y: 200,
+        width: 240,
+        height: 100,
+        boundElements: [{ id: "label", type: "text" }],
+        version: 2,
+        versionNonce: 10,
+      },
+      {
+        type: "text",
+        id: "label",
+        x: 335,
+        y: 205,
+        width: 1,
+        height: 1,
+        text: "平台防御",
+        originalText: "平台防御",
+        fontSize: 20,
+        fontFamily: 11,
+        lineHeight: 1.2,
+        textAlign: "center",
+        verticalAlign: "middle",
+        containerId: "container",
+        autoResize: true,
+        version: 2,
+        versionNonce: 11,
+      },
+    ]);
+    const container = restored.find(({ id }) => id === "container")!;
+    const label = restored.find(({ id }) => id === "label")!;
+
+    expect(label.width).toBeGreaterThan(1);
+    expect(label.height).toBeGreaterThan(1);
+    expect(label.x + label.width / 2).toBeCloseTo(
+      container.x + container.width / 2,
+      5,
+    );
+    expect(label.y + label.height / 2).toBeCloseTo(
+      container.y + container.height / 2,
+      5,
+    );
   });
 });
