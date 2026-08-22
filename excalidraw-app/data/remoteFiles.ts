@@ -1,4 +1,17 @@
-import { convertToExcalidrawElements } from "@excalidraw/excalidraw";
+import {
+  convertToExcalidrawElements,
+  Fonts,
+  restoreElements,
+} from "@excalidraw/excalidraw";
+import { arrayToMap } from "@excalidraw/common";
+import {
+  distanceToElement,
+  isArrowElement,
+  isTextElement,
+  LinearElementEditor,
+  Scene,
+  updateBoundElements,
+} from "@excalidraw/element";
 
 import { loadFromBlob } from "@excalidraw/excalidraw/data/blob";
 import { serializeAsJSON } from "@excalidraw/excalidraw/data/json";
@@ -101,6 +114,136 @@ const prepareRemoteFile = async (response: Response) => {
   return new Blob([JSON.stringify(document)], { type: "application/json" });
 };
 
+const areBoundElementsEqual = (
+  first: readonly { id: string; type: string }[] | null | undefined,
+  second: readonly { id: string; type: string }[] | null | undefined,
+) =>
+  (first?.length ?? 0) === (second?.length ?? 0) &&
+  (first ?? []).every(
+    (boundElement, index) =>
+      boundElement.id === second?.[index]?.id &&
+      boundElement.type === second[index].type,
+  );
+
+const refreshRemoteSceneElements = async (
+  elements: RemoteFileDocument["elements"],
+) => {
+  await Fonts.loadElementsFonts(elements);
+
+  const refreshedElements = restoreElements(elements, null, {
+    repairBindings: true,
+    refreshDimensions: true,
+  });
+  const refreshedScene = new Scene(refreshedElements);
+
+  for (const element of refreshedScene.getNonDeletedElements()) {
+    if (
+      element.boundElements?.some(
+        (boundElement) => boundElement.type === "arrow",
+      )
+    ) {
+      updateBoundElements(element, refreshedScene);
+    }
+  }
+
+  const refreshedElementsMap = refreshedScene.getElementsMapIncludingDeleted();
+  const originalElementsMap = arrayToMap(
+    elements.filter((element) => !element.isDeleted),
+  );
+
+  return elements.map((element) => {
+    const refreshedElement = refreshedElementsMap.get(element.id);
+
+    if (!refreshedElement) {
+      return element;
+    }
+
+    const boundElements = refreshedElement.boundElements;
+
+    if (isTextElement(element) && isTextElement(refreshedElement)) {
+      const isLayoutStale =
+        element.containerId &&
+        (Math.abs(
+          element.x +
+            element.width / 2 -
+            (refreshedElement.x + refreshedElement.width / 2),
+        ) > 1 ||
+          Math.abs(
+            element.y +
+              element.height / 2 -
+              (refreshedElement.y + refreshedElement.height / 2),
+          ) > 1);
+
+      if (!isLayoutStale) {
+        return areBoundElementsEqual(element.boundElements, boundElements)
+          ? element
+          : { ...element, boundElements };
+      }
+
+      return {
+        ...element,
+        x: refreshedElement.x,
+        y: refreshedElement.y,
+        width: refreshedElement.width,
+        height: refreshedElement.height,
+        text: refreshedElement.text,
+        boundElements,
+      };
+    }
+
+    if (isArrowElement(element) && isArrowElement(refreshedElement)) {
+      const hasDetachedBinding = (
+        binding: typeof element.startBinding,
+        pointIndex: number,
+      ) => {
+        if (!binding) {
+          return false;
+        }
+
+        const boundElement = originalElementsMap.get(binding.elementId);
+
+        return (
+          !boundElement ||
+          distanceToElement(
+            boundElement,
+            originalElementsMap,
+            LinearElementEditor.getPointAtIndexGlobalCoordinates(
+              element,
+              pointIndex,
+              originalElementsMap,
+            ),
+          ) > 1
+        );
+      };
+
+      if (
+        !hasDetachedBinding(element.startBinding, 0) &&
+        !hasDetachedBinding(element.endBinding, -1)
+      ) {
+        return areBoundElementsEqual(element.boundElements, boundElements)
+          ? element
+          : { ...element, boundElements };
+      }
+
+      return {
+        ...element,
+        x: refreshedElement.x,
+        y: refreshedElement.y,
+        width: refreshedElement.width,
+        height: refreshedElement.height,
+        points: refreshedElement.points,
+        startBinding: refreshedElement.startBinding,
+        endBinding: refreshedElement.endBinding,
+        boundElements,
+      };
+    }
+
+    return areBoundElementsEqual(element.boundElements, boundElements)
+      ? element
+      : { ...element, boundElements };
+  });
+};
+
 export const listRemoteFiles = async (): Promise<RemoteFile[]> => {
   const response = await fetch("/api/files");
   await assertOk(response);
@@ -181,12 +324,13 @@ export const openRemoteFile = async (
     excalidrawAPI.getAppState(),
     excalidrawAPI.getSceneElements(),
   );
+  const elements = await refreshRemoteSceneElements(scene.elements);
 
   if (scene.files) {
     excalidrawAPI.addFiles(Object.values(scene.files));
   }
   excalidrawAPI.updateScene({
-    elements: scene.elements,
+    elements,
     appState: { ...scene.appState, fileHandle: null },
   });
   excalidrawAPI.history.clear();

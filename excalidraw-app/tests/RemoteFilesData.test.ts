@@ -2,8 +2,10 @@ import {
   fetchRemoteFileRevisionBlob,
   listRemoteFileHistory,
   loadRemoteFileRevision,
+  openRemoteFile,
   RemoteFileRequestError,
   restoreRemoteFileRevision,
+  saveRemoteFile,
 } from "../data/remoteFiles";
 
 const blobMocks = vi.hoisted(() => ({
@@ -211,6 +213,115 @@ describe("Remote files data layer", () => {
     const [blob] = blobMocks.loadFromBlob.mock.calls[0];
     const document = JSON.parse(await readBlob(blob));
     expect(document.elements).toEqual(elements);
+  });
+
+  it("round-trips a copied high-version native scene without losing bindings", async () => {
+    const elements = [
+      {
+        id: "source",
+        type: "rectangle",
+        x: 100,
+        y: 200,
+        width: 240,
+        height: 100,
+        version: 187,
+        versionNonce: 9187,
+        boundElements: [
+          { id: "source-label", type: "text" },
+          { id: "connector", type: "arrow" },
+        ],
+      },
+      {
+        id: "source-label",
+        type: "text",
+        x: 166,
+        y: 238,
+        width: 108,
+        height: 24,
+        version: 203,
+        versionNonce: 9203,
+        text: "平台防御",
+        originalText: "平台防御",
+        fontSize: 20,
+        fontFamily: 11,
+        lineHeight: 1.2,
+        textAlign: "center",
+        verticalAlign: "middle",
+        containerId: "source",
+        autoResize: true,
+      },
+      {
+        id: "target",
+        type: "rectangle",
+        x: 500,
+        y: 200,
+        width: 240,
+        height: 100,
+        version: 164,
+        versionNonce: 9164,
+        boundElements: [{ id: "connector", type: "arrow" }],
+      },
+      {
+        id: "connector",
+        type: "arrow",
+        x: 340,
+        y: 250,
+        width: 160,
+        height: 0,
+        points: [
+          [0, 0],
+          [160, 0],
+        ],
+        version: 241,
+        versionNonce: 9241,
+        startBinding: {
+          elementId: "source",
+          focus: 0,
+          gap: 0,
+          fixedPoint: [1, 0.5],
+          mode: "orbit",
+        },
+        endBinding: {
+          elementId: "target",
+          focus: 0,
+          gap: 0,
+          fixedPoint: [0, 0.5],
+          mode: "orbit",
+        },
+        startArrowhead: null,
+        endArrowhead: "arrow",
+      },
+    ];
+    let savedDocument: any;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (_input, init) => {
+      if (init?.method === "PUT") {
+        savedDocument = JSON.parse(init.body as string);
+        return Response.json({ revision: "saved-revision" });
+      }
+      return new Response(JSON.stringify(savedDocument), {
+        headers: { ETag: '"saved-revision"' },
+      });
+    });
+    blobMocks.loadFromBlob.mockImplementation(async (blob: Blob) =>
+      JSON.parse(await readBlob(blob)),
+    );
+    const updateScene = vi.fn();
+    const excalidrawAPI = {
+      getSceneElements: () => elements,
+      getAppState: () => ({ viewBackgroundColor: "#ffffff" }),
+      getFiles: () => ({}),
+      addFiles: vi.fn(),
+      updateScene,
+      history: { clear: vi.fn() },
+    } as any;
+
+    await saveRemoteFile("Eval 系统答辩知识导图.excalidraw", excalidrawAPI, null);
+    await openRemoteFile("Eval 系统答辩知识导图.excalidraw", excalidrawAPI);
+
+    expect(savedDocument.elements).toEqual(elements);
+    expect(updateScene).toHaveBeenCalledWith(
+      expect.objectContaining({ elements }),
+    );
   });
 
   it("rejects a current preview that changed after history opened", async () => {
