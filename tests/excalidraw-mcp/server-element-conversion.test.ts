@@ -112,8 +112,10 @@ describe("convertElementsForStorage", () => {
     ]);
     const text = elements.find((element) => element.containerId === "card")!;
 
-    expect(text.width).toBeCloseTo(136.4, 1);
+    expect(text.width).toBeCloseTo(144.4, 1);
     expect(text.x + text.width / 2).toBeCloseTo(210, 5);
+    expect(text.x).toBeLessThan(138);
+    expect(text.x + text.width).toBeGreaterThan(282);
   });
 
   it("centers multiline Chinese bound text in every node", () => {
