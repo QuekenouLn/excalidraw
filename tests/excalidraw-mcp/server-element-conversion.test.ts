@@ -116,6 +116,66 @@ describe("convertElementsForStorage", () => {
     expect(text.x + text.width / 2).toBeCloseTo(210, 5);
   });
 
+  it("centers multiline Chinese bound text in every node", () => {
+    const nodes = [
+      {
+        type: "rectangle",
+        id: "strategy",
+        x: 40,
+        y: 60,
+        width: 240,
+        height: 120,
+        label: { text: "评估平台防御\n总体策略", fontSize: 20 },
+      },
+      {
+        type: "ellipse",
+        id: "detection",
+        x: 360,
+        y: 220,
+        width: 260,
+        height: 140,
+        label: { text: "异常行为检测\n与风险识别", fontSize: 20 },
+      },
+      {
+        type: "diamond",
+        id: "response",
+        x: 720,
+        y: 420,
+        width: 280,
+        height: 180,
+        label: { text: "自动响应处置\n持续复盘优化", fontSize: 20 },
+      },
+    ];
+    const elements = convertElementsForStorage(nodes);
+
+    for (const nodeInput of nodes) {
+      const node = elements.find((element) => element.id === nodeInput.id)!;
+      const label = elements.find(
+        (element) => element.containerId === nodeInput.id,
+      )!;
+
+      expect(label.text).toContain("\n");
+      expect(label).toMatchObject({
+        type: "text",
+        containerId: node.id,
+        textAlign: "center",
+        verticalAlign: "middle",
+      });
+      expect(node.boundElements).toContainEqual({
+        id: label.id,
+        type: "text",
+      });
+      expect(label.x + label.width / 2).toBeCloseTo(
+        node.x + node.width / 2,
+        5,
+      );
+      expect(label.y + label.height / 2).toBeCloseTo(
+        node.y + node.height / 2,
+        5,
+      );
+    }
+  });
+
   it("wraps long mixed labels within the container", () => {
     const elements = convertElementsForStorage([
       {
@@ -206,7 +266,7 @@ describe("convertElementsForStorage", () => {
     });
     expect(label).toMatchObject({
       textAlign: "center",
-      verticalAlign: "top",
+      verticalAlign: "middle",
     });
   });
 
