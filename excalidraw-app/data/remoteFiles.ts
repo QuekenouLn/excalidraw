@@ -36,6 +36,22 @@ export type RemoteFileHistoryEntry = {
   current: boolean;
 };
 
+export const isValidRemoteFileName = (name: string) =>
+  name.length >= 12 &&
+  name.length <= 128 &&
+  /^[\p{L}\p{N}][\p{L}\p{N} ._-]*\.excalidraw$/u.test(name);
+
+export const getRenamedRemoteFileState = (
+  activeName: string | null,
+  activeRevision: string | null,
+  dirty: boolean,
+  oldName: string,
+  renamed: RemoteFile,
+) =>
+  activeName === oldName
+    ? { activeName: renamed.name, activeRevision: renamed.revision, dirty }
+    : { activeName, activeRevision, dirty };
+
 type RemoteFileHistoryResponseEntry = {
   revision: string;
   size: number;
@@ -358,6 +374,23 @@ export const saveRemoteFile = async (
   });
   await assertOk(response);
   return (await response.json()) as { revision: string };
+};
+
+export const renameRemoteFile = async (
+  name: string,
+  newName: string,
+  expectedRevision: string,
+): Promise<RemoteFile> => {
+  const response = await fetch(fileUrl(name), {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      "If-Match": expectedRevision,
+    },
+    body: JSON.stringify({ name: newName }),
+  });
+  await assertOk(response);
+  return response.json();
 };
 
 export const restoreRemoteFileRevision = async (

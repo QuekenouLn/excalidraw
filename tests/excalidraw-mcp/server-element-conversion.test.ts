@@ -1,5 +1,28 @@
-import { describe, expect, it } from "vitest";
-import { convertElementsForStorage } from "../../integrations/excalidraw-mcp/src/server-element-conversion";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+
+import { describe, expect, it, beforeAll } from "vitest";
+
+import {
+  convertElementsForStorage,
+  getBoundTextWidthViolations,
+} from "../../integrations/excalidraw-mcp/src/server-element-conversion";
+import {
+  MAPLE_TEXT_WIDTH_SAFETY_FACTOR,
+  measureMapleTextWidth,
+  setMapleFontMetricsBuffer,
+} from "../../integrations/excalidraw-mcp/src/maple-font-metrics";
+
+beforeAll(() => {
+  setMapleFontMetricsBuffer(
+    readFileSync(
+      path.join(
+        process.cwd(),
+        "packages/excalidraw/fonts/MapleMonoNFCN/MapleMono-NF-CN-Regular.woff2",
+      ),
+    ),
+  );
+});
 
 describe("convertElementsForStorage", () => {
   it("creates native labels and two-way arrow bindings", () => {
@@ -29,7 +52,10 @@ describe("convertElementsForStorage", () => {
         y: 40,
         width: 200,
         height: 0,
-        points: [[0, 0], [200, 0]],
+        points: [
+          [0, 0],
+          [200, 0],
+        ],
         startBinding: { elementId: "source", fixedPoint: [1, 0.5] },
         endBinding: { elementId: "target", fixedPoint: [0, 0.5] },
       },
@@ -58,7 +84,10 @@ describe("convertElementsForStorage", () => {
     expect(arrow).toMatchObject({
       x: 200.5,
       y: 40,
-      points: [[0, 0], [199, 0]],
+      points: [
+        [0, 0],
+        [199, 0],
+      ],
       roundness: { type: 2 },
       moveMidPointsWithElement: false,
     });
@@ -112,10 +141,37 @@ describe("convertElementsForStorage", () => {
     ]);
     const text = elements.find((element) => element.containerId === "card")!;
 
-    expect(text.width).toBeCloseTo(144.4, 1);
+    expect(MAPLE_TEXT_WIDTH_SAFETY_FACTOR).toBe(1.35);
+    expect(text.width).toBeCloseTo(
+      measureMapleTextWidth("企业级 AI 平台", 20) + 8,
+      5,
+    );
     expect(text.x + text.width / 2).toBeCloseTo(210, 5);
     expect(text.x).toBeLessThan(138);
     expect(text.x + text.width).toBeGreaterThan(282);
+  });
+
+  it("expands undersized containers around real font width with 35% slack", () => {
+    const originalCenter = 130;
+    const elements = convertElementsForStorage([
+      {
+        type: "rectangle",
+        id: "narrow-card",
+        x: 100,
+        y: 100,
+        width: 60,
+        height: 80,
+        label: { text: "企业级 AI 平台", fontSize: 20 },
+      },
+    ]);
+    const container = elements.find(({ id }) => id === "narrow-card")!;
+    const text = elements.find(
+      ({ containerId }) => containerId === "narrow-card",
+    )!;
+
+    expect(container.width).toBeGreaterThan(text.width + 8);
+    expect(container.x + container.width / 2).toBeCloseTo(originalCenter, 5);
+    expect(text.x + text.width / 2).toBeCloseTo(originalCenter, 5);
   });
 
   it("centers multiline Chinese bound text in every node", () => {
@@ -167,10 +223,7 @@ describe("convertElementsForStorage", () => {
         id: label.id,
         type: "text",
       });
-      expect(label.x + label.width / 2).toBeCloseTo(
-        node.x + node.width / 2,
-        5,
-      );
+      expect(label.x + label.width / 2).toBeCloseTo(node.x + node.width / 2, 5);
       expect(label.y + label.height / 2).toBeCloseTo(
         node.y + node.height / 2,
         5,
@@ -178,7 +231,7 @@ describe("convertElementsForStorage", () => {
     }
   });
 
-  it("wraps long mixed labels within the container", () => {
+  it("expands containers instead of wrapping long mixed labels", () => {
     const elements = convertElementsForStorage([
       {
         type: "rectangle",
@@ -193,38 +246,75 @@ describe("convertElementsForStorage", () => {
         },
       },
     ]);
+    const container = elements.find((element) => element.id === "card")!;
     const text = elements.find((element) => element.containerId === "card")!;
 
-    expect(text.text).toContain("\n");
-    expect(text.width).toBeLessThanOrEqual(170);
+    expect(text.text).not.toContain("\n");
+    expect(container.width).toBeGreaterThan(180);
+    expect(text.width).toBeCloseTo(
+      measureMapleTextWidth("MCP Tool Gateway 搜索数据库业务系统", 18) + 8,
+      5,
+    );
     expect(text.originalText).toBe("MCP Tool Gateway 搜索数据库业务系统");
   });
 
   it("keeps a complete native scene unchanged", () => {
-    const native = [{
-      id: "shape",
-      type: "rectangle",
-      x: 0,
-      y: 0,
-      width: 100,
-      height: 80,
-      version: 2,
-      versionNonce: 3,
-    }];
+    const native = [
+      {
+        id: "shape",
+        type: "rectangle",
+        x: 0,
+        y: 0,
+        width: 100,
+        height: 80,
+        version: 2,
+        versionNonce: 3,
+      },
+    ];
     expect(convertElementsForStorage(native)).toBe(native);
   });
 
+  it("repairs the known Agent evaluation diagram with zero width violations", () => {
+    const fixture = JSON.parse(
+      readFileSync(
+        path.join(
+          process.cwd(),
+          "tests/excalidraw-mcp/fixtures/agent-eval-evidence-font-regression.json",
+        ),
+        "utf8",
+      ),
+    );
+    const before = getBoundTextWidthViolations(fixture.elements);
+
+    expect(before).toHaveLength(21);
+    expect(
+      before.sort((left, right) => right.deficit - left.deficit)[0],
+    ).toMatchObject({
+      textId: "wide_t7_item1__label",
+      containerId: "wide_t7_item1",
+    });
+
+    const repaired = convertElementsForStorage(fixture.elements);
+
+    expect(getBoundTextWidthViolations(repaired)).toEqual([]);
+    expect(
+      repaired.find((element: any) => element.id === "wide_t7_item1").width,
+    ).toBeGreaterThan(560);
+  });
+
   it("normalizes incomplete native text elements", () => {
-    const [text] = convertElementsForStorage([{
-      id: "title",
-      type: "text",
-      x: 20,
-      y: 30,
-      text: "MCP 架构",
-      fontSize: 24,
-      version: 2,
-      versionNonce: 3,
-    }]);
+    const [text] = convertElementsForStorage([
+      {
+        id: "title",
+        type: "text",
+        x: 20,
+        y: 30,
+        text: "MCP 架构",
+        fontSize: 24,
+        version: 2,
+        versionNonce: 3,
+      },
+    ]);
 
     expect(text.width).toBeGreaterThan(0);
     expect(text.height).toBeGreaterThan(0);

@@ -151,6 +151,8 @@ import { ExcalidrawPlusPromoBanner } from "./components/ExcalidrawPlusPromoBanne
 import { AppSidebar } from "./components/AppSidebar";
 import {
   openRemoteFile,
+  getRenamedRemoteFileState,
+  type RemoteFile,
   RemoteFileRequestError,
   saveRemoteFile,
 } from "./data/remoteFiles";
@@ -383,9 +385,13 @@ const ExcalidrawWrapper = () => {
 
   const [errorMessage, setErrorMessage] = useState("");
   const [activeRemoteFile, setActiveRemoteFile] = useState<string | null>(null);
-  const [activeRemoteRevision, setActiveRemoteRevision] = useState<string | null>(null);
+  const [activeRemoteRevision, setActiveRemoteRevision] = useState<
+    string | null
+  >(null);
   const [remoteFileDirty, setRemoteFileDirty] = useState(false);
-  const [pendingRemoteFile, setPendingRemoteFile] = useState<string | null>(null);
+  const [pendingRemoteFile, setPendingRemoteFile] = useState<string | null>(
+    null,
+  );
   const [remoteFilesRevision, setRemoteFilesRevision] = useState(0);
   const savedSceneSignatureRef = useRef<string | null>(null);
   const isCollabDisabled = isRunningInIframe();
@@ -875,20 +881,23 @@ const ExcalidrawWrapper = () => {
     setRemoteFileDirty(false);
   }, [excalidrawAPI]);
 
-  const openRemoteFileNow = useCallback(async (name: string) => {
-    if (!excalidrawAPI) {
-      return;
-    }
-    try {
-      const revision = await openRemoteFile(name, excalidrawAPI);
-      setActiveRemoteFile(name);
-      setActiveRemoteRevision(revision);
-      markCurrentSceneSaved();
-      excalidrawAPI.setToast({ message: `Opened ${name}` });
-    } catch (error: any) {
-      setErrorMessage(error.message);
-    }
-  }, [excalidrawAPI, markCurrentSceneSaved]);
+  const openRemoteFileNow = useCallback(
+    async (name: string) => {
+      if (!excalidrawAPI) {
+        return;
+      }
+      try {
+        const revision = await openRemoteFile(name, excalidrawAPI);
+        setActiveRemoteFile(name);
+        setActiveRemoteRevision(revision);
+        markCurrentSceneSaved();
+        excalidrawAPI.setToast({ message: `Opened ${name}` });
+      } catch (error: any) {
+        setErrorMessage(error.message);
+      }
+    },
+    [excalidrawAPI, markCurrentSceneSaved],
+  );
 
   const handleOpenRemoteFile = useCallback(
     (name: string) => {
@@ -916,6 +925,24 @@ const ExcalidrawWrapper = () => {
       excalidrawAPI?.setToast({ message: `Deleted ${name}` });
     },
     [activeRemoteFile, excalidrawAPI],
+  );
+
+  const handleRenameRemoteFile = useCallback(
+    (oldName: string, file: RemoteFile) => {
+      const state = getRenamedRemoteFileState(
+        activeRemoteFile,
+        activeRemoteRevision,
+        remoteFileDirty,
+        oldName,
+        file,
+      );
+      if (state.activeName !== activeRemoteFile) {
+        setActiveRemoteFile(state.activeName);
+        setActiveRemoteRevision(state.activeRevision);
+      }
+      setRemoteFilesRevision((revision) => revision + 1);
+    },
+    [activeRemoteFile, activeRemoteRevision, remoteFileDirty],
   );
 
   const handleRestoreRemoteFile = useCallback(
@@ -1028,7 +1055,8 @@ const ExcalidrawWrapper = () => {
       }
     };
     window.addEventListener("keydown", saveHandler, { capture: true });
-    return () => window.removeEventListener("keydown", saveHandler, { capture: true });
+    return () =>
+      window.removeEventListener("keydown", saveHandler, { capture: true });
   }, [handleSaveRemoteFile]);
 
   // ---------------------------------------------------------------------------
@@ -1308,6 +1336,7 @@ const ExcalidrawWrapper = () => {
           remoteFileDirty={remoteFileDirty}
           onDeleteRemoteFile={handleDeleteRemoteFile}
           onOpenRemoteFile={handleOpenRemoteFile}
+          onRenameRemoteFile={handleRenameRemoteFile}
           onRestoreRemoteFile={handleRestoreRemoteFile}
           remoteFilesRevision={remoteFilesRevision}
         />

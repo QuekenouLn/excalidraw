@@ -121,6 +121,101 @@ class RemoteStorageHistoryTest(unittest.TestCase):
             "GET", f"{self.file_path(name)}/history/{history_revision}"
         )
 
+    def rename(self, server, name, new_name, expected_revision=None):
+        body = json.dumps({"name": new_name}).encode()
+        headers = {
+            "Content-Type": "application/json",
+            "Content-Length": str(len(body)),
+        }
+        if expected_revision is not None:
+            headers["If-Match"] = f'"{expected_revision}"'
+        return server.request("PATCH", self.file_path(name), body, headers)
+
+    def test_renames_file_and_complete_history_without_changing_metadata(self):
+        old_name = "original plan.excalidraw"
+        new_name = "renamed plan.excalidraw"
+        first = excalidraw_body("first")
+        second = excalidraw_body("second")
+        first_revision = revision(first)
+        second_revision = revision(second)
+
+        with ServerProcess(self.temporary_directory.name, 1024 * 1024) as server:
+            self.assertEqual(self.put(server, old_name, first)[0], 200)
+            self.assertEqual(
+                self.put(server, old_name, second, first_revision)[0], 200
+            )
+            source_path = Path(self.temporary_directory.name) / old_name
+            source_mtime = source_path.stat().st_mtime_ns
+
+            status, headers, response = self.rename(
+                server, old_name, new_name, second_revision
+            )
+            self.assertEqual(status, 200)
+            self.assertEqual(headers["ETag"], f'"{second_revision}"')
+            self.assertEqual(
+                json.loads(response),
+                {
+                    "name": new_name,
+                    "size": len(second),
+                    "updatedAt": json.loads(response)["updatedAt"],
+                    "revision": second_revision,
+                },
+            )
+            self.assertEqual(server.request("GET", self.file_path(old_name))[0], 404)
+            status, read_headers, current = server.request(
+                "GET", self.file_path(new_name)
+            )
+            self.assertEqual((status, current), (200, second))
+            self.assertEqual(read_headers["ETag"], f'"{second_revision}"')
+            self.assertEqual(
+                (Path(self.temporary_directory.name) / new_name).stat().st_mtime_ns,
+                source_mtime,
+            )
+            status, items = self.history(server, new_name)
+            self.assertEqual(status, 200)
+            self.assertEqual([item["revision"] for item in items], [first_revision])
+            self.assertEqual(
+                self.history_revision(server, new_name, first_revision)[2], first
+            )
+            self.assertEqual(self.history(server, old_name)[0], 404)
+
+    def test_rename_failures_leave_file_and_history_untouched(self):
+        source_name = "source file.excalidraw"
+        target_name = "target file.excalidraw"
+        first = excalidraw_body("first")
+        current = excalidraw_body("current")
+        target = excalidraw_body("target")
+        current_revision = revision(current)
+
+        with ServerProcess(self.temporary_directory.name, 1024 * 1024) as server:
+            self.assertEqual(self.put(server, source_name, first)[0], 200)
+            self.assertEqual(
+                self.put(server, source_name, current, revision(first))[0], 200
+            )
+            self.assertEqual(self.put(server, target_name, target)[0], 200)
+
+            cases = (
+                (source_name, "unused name.excalidraw", None, 428),
+                (source_name, "unused name.excalidraw", "0" * 64, 412),
+                (source_name, target_name, current_revision, 409),
+                (source_name, "../invalid.excalidraw", current_revision, 400),
+                (source_name, source_name, current_revision, 400),
+                ("missing file.excalidraw", "unused name.excalidraw", current_revision, 404),
+            )
+            for old_name, new_name, expected_revision, expected_status in cases:
+                with self.subTest(status=expected_status, new_name=new_name):
+                    self.assertEqual(
+                        self.rename(server, old_name, new_name, expected_revision)[0],
+                        expected_status,
+                    )
+                    self.assertEqual(
+                        server.request("GET", self.file_path(source_name))[2], current
+                    )
+                    self.assertEqual(
+                        [item["revision"] for item in self.history(server, source_name)[1]],
+                        [revision(first)],
+                    )
+
     def test_reads_history_revision_and_rejects_invalid_or_missing_revisions(self):
         name = "preview.excalidraw"
         first = excalidraw_body("first")

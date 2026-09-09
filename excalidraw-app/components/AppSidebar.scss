@@ -139,6 +139,27 @@
     overflow-y: auto;
   }
 
+  .remote-files-rename {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: 1fr auto auto;
+    gap: 0.4rem;
+
+    input {
+      min-width: 0;
+      border: 1px solid var(--default-border-color);
+      border-radius: var(--border-radius-md);
+      padding: 0.4rem;
+      background: var(--input-bg-color);
+      color: inherit;
+    }
+
+    .remote-files-error {
+      grid-column: 1 / -1;
+      margin: 0;
+    }
+  }
+
   .remote-file-history__filename {
     margin-bottom: 0.75rem;
     overflow: hidden;

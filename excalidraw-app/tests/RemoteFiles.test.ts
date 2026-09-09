@@ -22,6 +22,7 @@ const remoteFileMocks = vi.hoisted(() => ({
   listRemoteFileHistory: vi.fn(),
   listRemoteFiles: vi.fn(),
   loadRemoteFilePreview: vi.fn(),
+  renameRemoteFile: vi.fn(),
   restoreRemoteFileRevision: vi.fn(),
 }));
 
@@ -101,6 +102,7 @@ describe("Remote files", () => {
     onRestore = vi.fn().mockResolvedValue(undefined),
     isDirty = false,
     onOpen = vi.fn(),
+    onRename = vi.fn(),
   ) => {
     await render(
       React.createElement(
@@ -111,6 +113,7 @@ describe("Remote files", () => {
           isDirty,
           onDelete: vi.fn(),
           onOpen,
+          onRename,
           onRestore,
           revision: 0,
         }),
@@ -137,9 +140,72 @@ describe("Remote files", () => {
     expect(actions).toEqual([
       "Architecture.excalidraw",
       "Copy",
+      "Rename",
       "History",
       "Delete",
     ]);
+  });
+
+  it("renames with Enter and reports the active file update", async () => {
+    const onRename = vi.fn();
+    const renamed = { ...files[0], name: "System design.excalidraw" };
+    remoteFileMocks.renameRemoteFile.mockResolvedValue(renamed);
+    await renderSidebar(undefined, true, undefined, onRename);
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Rename" })[0]);
+    const input = screen.getByRole("textbox", {
+      name: "Rename Architecture.excalidraw",
+    });
+    fireEvent.change(input, { target: { value: renamed.name } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    await waitFor(() =>
+      expect(remoteFileMocks.renameRemoteFile).toHaveBeenCalledWith(
+        files[0].name,
+        renamed.name,
+        files[0].revision,
+      ),
+    );
+    expect(onRename).toHaveBeenCalledWith(files[0].name, renamed);
+    expect(
+      screen.getByRole("button", { name: renamed.name }),
+    ).toBeInTheDocument();
+  });
+
+  it("cancels rename with Escape", async () => {
+    await renderSidebar();
+    fireEvent.click(screen.getAllByRole("button", { name: "Rename" })[0]);
+    const input = screen.getByRole("textbox", {
+      name: "Rename Architecture.excalidraw",
+    });
+    fireEvent.change(input, { target: { value: "Changed.excalidraw" } });
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(remoteFileMocks.renameRemoteFile).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: "Architecture.excalidraw" }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps rename open for validation and server errors", async () => {
+    remoteFileMocks.renameRemoteFile.mockRejectedValue(
+      new Error("Already exists"),
+    );
+    await renderSidebar();
+    fireEvent.click(screen.getAllByRole("button", { name: "Rename" })[0]);
+    const input = screen.getByRole("textbox", {
+      name: "Rename Architecture.excalidraw",
+    });
+    fireEvent.change(input, { target: { value: "bad" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(
+      screen.getByText("Enter a valid .excalidraw filename"),
+    ).toBeInTheDocument();
+    fireEvent.change(input, { target: { value: "Existing file.excalidraw" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    await waitFor(() =>
+      expect(screen.getByText("Already exists")).toBeInTheDocument(),
+    );
+    expect(input).toHaveValue("Existing file.excalidraw");
   });
 
   it("opens the selected remote file", async () => {

@@ -10,6 +10,8 @@ import {
   listRemoteFileHistory,
   listRemoteFiles,
   loadRemoteFilePreview,
+  isValidRemoteFileName,
+  renameRemoteFile,
   restoreRemoteFileRevision,
   type RemoteFile,
   type RemoteFileHistoryEntry,
@@ -53,6 +55,7 @@ export const RemoteFilesSidebar = ({
   isDirty,
   onDelete,
   onOpen,
+  onRename,
   onRestore,
   revision,
 }: {
@@ -60,6 +63,7 @@ export const RemoteFilesSidebar = ({
   isDirty: boolean;
   onDelete: (name: string) => void;
   onOpen: (name: string) => void;
+  onRename?: (oldName: string, file: RemoteFile) => void;
   onRestore: (name: string, revision: string) => Promise<void>;
   revision: number;
 }) => {
@@ -84,6 +88,11 @@ export const RemoteFilesSidebar = ({
   const [restoringRevision, setRestoringRevision] = useState<string | null>(
     null,
   );
+  const [editingFile, setEditingFile] = useState<RemoteFile | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [renameError, setRenameError] = useState("");
+  const [renaming, setRenaming] = useState(false);
+  const renameInputRef = useRef<HTMLInputElement | null>(null);
 
   const visibleFiles = filterRemoteFiles(files, query);
 
@@ -173,6 +182,63 @@ export const RemoteFilesSidebar = ({
       setError(error.message);
     }
   }, []);
+
+  const startRename = useCallback((file: RemoteFile) => {
+    setEditingFile(file);
+    setRenameValue(file.name);
+    setRenameError("");
+    requestAnimationFrame(() => {
+      const input = renameInputRef.current;
+      input?.focus();
+      input?.setSelectionRange(0, file.name.length - ".excalidraw".length);
+    });
+  }, []);
+
+  const cancelRename = useCallback(() => {
+    if (renaming) {
+      return;
+    }
+    setEditingFile(null);
+    setRenameError("");
+  }, [renaming]);
+
+  const submitRename = useCallback(async () => {
+    if (!editingFile || renaming) {
+      return;
+    }
+    if (renameValue === editingFile.name) {
+      setRenameError("Choose a different filename");
+      return;
+    }
+    if (!isValidRemoteFileName(renameValue)) {
+      setRenameError("Enter a valid .excalidraw filename");
+      return;
+    }
+    setRenaming(true);
+    setRenameError("");
+    try {
+      const renamed = await renameRemoteFile(
+        editingFile.name,
+        renameValue,
+        editingFile.revision,
+      );
+      setFiles((files) =>
+        files.map((file) => (file.name === editingFile.name ? renamed : file)),
+      );
+      setHistoryFile((file) =>
+        file?.name === editingFile.name ? renamed : file,
+      );
+      setPendingDelete((file) =>
+        file?.name === editingFile.name ? renamed : file,
+      );
+      onRename?.(editingFile.name, renamed);
+      setEditingFile(null);
+    } catch (error: any) {
+      setRenameError(error.message);
+    } finally {
+      setRenaming(false);
+    }
+  }, [editingFile, onRename, renameValue, renaming]);
 
   const loadHistory = useCallback(async (file: RemoteFile) => {
     try {
@@ -278,12 +344,52 @@ export const RemoteFilesSidebar = ({
             }`}
             key={file.name}
           >
-            <button
-              className="remote-files-name"
-              onClick={() => onOpen(file.name)}
-            >
-              {file.name}
-            </button>
+            {editingFile?.name === file.name ? (
+              <form
+                className="remote-files-rename"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  submitRename();
+                }}
+              >
+                <input
+                  ref={renameInputRef}
+                  aria-label={`Rename ${file.name}`}
+                  value={renameValue}
+                  disabled={renaming}
+                  onChange={(event) => setRenameValue(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      cancelRename();
+                    } else if (event.key === "Enter") {
+                      event.preventDefault();
+                      submitRename();
+                    }
+                  }}
+                />
+                <button type="submit" disabled={renaming}>
+                  {renaming ? "Renaming…" : "Save"}
+                </button>
+                <button
+                  type="button"
+                  disabled={renaming}
+                  onClick={cancelRename}
+                >
+                  Cancel
+                </button>
+                {renameError && (
+                  <p className="remote-files-error">{renameError}</p>
+                )}
+              </form>
+            ) : (
+              <button
+                className="remote-files-name"
+                onClick={() => onOpen(file.name)}
+              >
+                {file.name}
+              </button>
+            )}
             <span>{new Date(file.updatedAt).toLocaleString()}</span>
             <button
               type="button"
@@ -292,6 +398,9 @@ export const RemoteFilesSidebar = ({
               onClick={() => copyFilename(file.name)}
             >
               Copy
+            </button>
+            <button type="button" onClick={() => startRename(file)}>
+              Rename
             </button>
             <button type="button" onClick={() => openHistory(file)}>
               History

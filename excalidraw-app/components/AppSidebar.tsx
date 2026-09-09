@@ -10,6 +10,8 @@ import { useUIAppState } from "@excalidraw/excalidraw/context/ui-appState";
 import "./AppSidebar.scss";
 import { RemoteFilesSidebar } from "./RemoteFilesSidebar";
 
+import type { RemoteFile } from "../data/remoteFiles";
+
 type SidebarPromoCopyProps = {
   text: string;
 };
@@ -72,6 +74,7 @@ export const AppSidebar = ({
   remoteFileDirty,
   onDeleteRemoteFile,
   onOpenRemoteFile,
+  onRenameRemoteFile,
   onRestoreRemoteFile,
   remoteFilesRevision,
 }: {
@@ -79,86 +82,91 @@ export const AppSidebar = ({
   remoteFileDirty: boolean;
   onDeleteRemoteFile: (name: string) => void;
   onOpenRemoteFile: (name: string) => void;
+  onRenameRemoteFile: (oldName: string, file: RemoteFile) => void;
   onRestoreRemoteFile: (name: string, revision: string) => Promise<void>;
   remoteFilesRevision: number;
 }) => {
   const { theme, openSidebar } = useUIAppState();
 
   return (
-    <DefaultSidebar>
-      <DefaultSidebar.TabTriggers>
-        <Sidebar.TabTrigger
-          tab="remote"
-          title="Remote files"
-          style={{ opacity: openSidebar?.tab === "remote" ? 1 : 0.4 }}
-        >
-          {file}
-        </Sidebar.TabTrigger>
-        <Sidebar.TabTrigger
-          tab="comments"
-          style={{ opacity: openSidebar?.tab === "comments" ? 1 : 0.4 }}
-        >
-          {messageCircleIcon}
-        </Sidebar.TabTrigger>
-        <Sidebar.TabTrigger
-          tab="presentation"
-          style={{ opacity: openSidebar?.tab === "presentation" ? 1 : 0.4 }}
-        >
-          {presentationIcon}
-        </Sidebar.TabTrigger>
-      </DefaultSidebar.TabTriggers>
-      <Sidebar.Tab tab="remote">
-        <RemoteFilesSidebar
-          activeFile={activeRemoteFile}
-          isDirty={remoteFileDirty}
-          onDelete={onDeleteRemoteFile}
-          onOpen={onOpenRemoteFile}
-          onRestore={onRestoreRemoteFile}
-          revision={remoteFilesRevision}
-        />
-      </Sidebar.Tab>
-      <Sidebar.Tab tab="comments">
-        <div className="app-sidebar-promo-container">
-          <div
-            className="app-sidebar-promo-image"
-            style={{
-              ["--image-source" as any]: `url(/sidebar-comments-promo-${
-                theme === THEME.DARK ? "dark" : "light"
-              }.jpg)`,
-              opacity: 0.9,
-            }}
-          />
-          <SidebarPromoCopy text="Make comments with Excalidraw+" />
-          <LinkButton
-            href={`${
-              import.meta.env.VITE_APP_PLUS_LP
-            }/plus?utm_source=excalidraw&utm_medium=app&utm_content=comments_promo#excalidraw-redirect`}
+    <>
+      <DefaultSidebar.Trigger title="Remote files" tab="remote" icon={file} />
+      <DefaultSidebar>
+        <DefaultSidebar.TabTriggers>
+          <Sidebar.TabTrigger
+            tab="remote"
+            title="Remote files"
+            style={{ opacity: openSidebar?.tab === "remote" ? 1 : 0.4 }}
           >
-            Sign up now
-          </LinkButton>
-        </div>
-      </Sidebar.Tab>
-      <Sidebar.Tab tab="presentation" className="px-3">
-        <div className="app-sidebar-promo-container">
-          <div
-            className="app-sidebar-promo-image"
-            style={{
-              ["--image-source" as any]: `url(/sidebar-presentation-promo-${
-                theme === THEME.DARK ? "dark" : "light"
-              }.jpg)`,
-              opacity: 0.7,
-            }}
-          />
-          <SidebarPromoCopy text="Create presentation with Excalidraw+" />
-          <LinkButton
-            href={`${
-              import.meta.env.VITE_APP_PLUS_LP
-            }/plus?utm_source=excalidraw&utm_medium=app&utm_content=presentations_promo#excalidraw-redirect`}
+            {file}
+          </Sidebar.TabTrigger>
+          <Sidebar.TabTrigger
+            tab="comments"
+            style={{ opacity: openSidebar?.tab === "comments" ? 1 : 0.4 }}
           >
-            Sign up now
-          </LinkButton>
-        </div>
-      </Sidebar.Tab>
-    </DefaultSidebar>
+            {messageCircleIcon}
+          </Sidebar.TabTrigger>
+          <Sidebar.TabTrigger
+            tab="presentation"
+            style={{ opacity: openSidebar?.tab === "presentation" ? 1 : 0.4 }}
+          >
+            {presentationIcon}
+          </Sidebar.TabTrigger>
+        </DefaultSidebar.TabTriggers>
+        <Sidebar.Tab tab="remote">
+          <RemoteFilesSidebar
+            activeFile={activeRemoteFile}
+            isDirty={remoteFileDirty}
+            onDelete={onDeleteRemoteFile}
+            onOpen={onOpenRemoteFile}
+            onRename={onRenameRemoteFile}
+            onRestore={onRestoreRemoteFile}
+            revision={remoteFilesRevision}
+          />
+        </Sidebar.Tab>
+        <Sidebar.Tab tab="comments">
+          <div className="app-sidebar-promo-container">
+            <div
+              className="app-sidebar-promo-image"
+              style={{
+                ["--image-source" as any]: `url(/sidebar-comments-promo-${
+                  theme === THEME.DARK ? "dark" : "light"
+                }.jpg)`,
+                opacity: 0.9,
+              }}
+            />
+            <SidebarPromoCopy text="Make comments with Excalidraw+" />
+            <LinkButton
+              href={`${
+                import.meta.env.VITE_APP_PLUS_LP
+              }/plus?utm_source=excalidraw&utm_medium=app&utm_content=comments_promo#excalidraw-redirect`}
+            >
+              Sign up now
+            </LinkButton>
+          </div>
+        </Sidebar.Tab>
+        <Sidebar.Tab tab="presentation" className="px-3">
+          <div className="app-sidebar-promo-container">
+            <div
+              className="app-sidebar-promo-image"
+              style={{
+                ["--image-source" as any]: `url(/sidebar-presentation-promo-${
+                  theme === THEME.DARK ? "dark" : "light"
+                }.jpg)`,
+                opacity: 0.7,
+              }}
+            />
+            <SidebarPromoCopy text="Create presentation with Excalidraw+" />
+            <LinkButton
+              href={`${
+                import.meta.env.VITE_APP_PLUS_LP
+              }/plus?utm_source=excalidraw&utm_medium=app&utm_content=presentations_promo#excalidraw-redirect`}
+            >
+              Sign up now
+            </LinkButton>
+          </div>
+        </Sidebar.Tab>
+      </DefaultSidebar>
+    </>
   );
 };

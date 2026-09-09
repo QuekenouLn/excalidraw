@@ -26,11 +26,35 @@ def revision(body: bytes) -> str:
     return hashlib.sha256(body).hexdigest()
 
 
-def resolve_file(request_path: str) -> Path:
-    name = unquote(request_path.removeprefix("/files/")).strip()
-    if not name or name != Path(name).name or not name.endswith(".excalidraw"):
+def validate_filename(name: str) -> str:
+    stem = name.removesuffix(".excalidraw")
+    if (
+        not 12 <= len(name) <= 128
+        or name != name.strip()
+        or name != Path(name).name
+        or not name.endswith(".excalidraw")
+        or not stem
+        or not stem[0].isalnum()
+        or any(not character.isalnum() and character not in " ._-" for character in stem)
+    ):
         raise ValueError("Invalid filename")
+    return name
+
+
+def resolve_file(request_path: str) -> Path:
+    name = validate_filename(unquote(request_path.removeprefix("/files/")))
     return storage_dir / name
+
+
+def file_metadata(path: Path) -> dict[str, str | int]:
+    stat = path.stat()
+    body = path.read_bytes()
+    return {
+        "name": path.name,
+        "size": stat.st_size,
+        "updatedAt": datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat(),
+        "revision": revision(body),
+    }
 
 
 def resolve_history_request(request_path: str) -> tuple[Path, str | None]:
@@ -187,18 +211,7 @@ class Handler(BaseHTTPRequestHandler):
         if parsed.path == "/files":
             files = []
             for path in storage_dir.glob("*.excalidraw"):
-                stat = path.stat()
-                body = path.read_bytes()
-                files.append(
-                    {
-                        "name": path.name,
-                        "size": stat.st_size,
-                        "updatedAt": datetime.fromtimestamp(
-                            stat.st_mtime, timezone.utc
-                        ).isoformat(),
-                        "revision": revision(body),
-                    }
-                )
+                files.append(file_metadata(path))
             files.sort(key=lambda item: item["updatedAt"], reverse=True)
             body = json.dumps(files).encode()
             self.send_response(200)
@@ -309,6 +322,62 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header("ETag", f'"{revision(body)}"')
+        self.send_header("Content-Length", str(len(response)))
+        self.end_headers()
+        self.wfile.write(response)
+
+    def do_PATCH(self) -> None:
+        try:
+            source = resolve_file(urlparse(self.path).path)
+        except ValueError as error:
+            self.send_text(400, str(error))
+            return
+        expected_revision = self.headers.get("If-Match")
+        if not expected_revision:
+            self.send_text(428, "If-Match revision is required")
+            return
+        length = int(self.headers.get("Content-Length", "0"))
+        if length <= 0 or length > 1024:
+            self.send_text(413, "Invalid request size")
+            return
+        try:
+            data = json.loads(self.rfile.read(length))
+            if set(data) != {"name"} or not isinstance(data["name"], str):
+                raise ValueError("Invalid rename request")
+            target = storage_dir / validate_filename(data["name"])
+        except (json.JSONDecodeError, TypeError, ValueError) as error:
+            self.send_text(400, str(error) or "Invalid rename request")
+            return
+        if source == target:
+            self.send_text(400, "New filename must be different")
+            return
+        with write_lock:
+            if not source.is_file():
+                self.send_text(404, "File not found")
+                return
+            body = source.read_bytes()
+            current_revision = revision(body)
+            if expected_revision.strip('"') != current_revision:
+                self.send_text(412, "File changed since it was listed")
+                return
+            if target.exists() or file_history_dir(target).exists():
+                self.send_text(409, "Target file already exists")
+                return
+            source_history = file_history_dir(source)
+            target_history = file_history_dir(target)
+            source.rename(target)
+            try:
+                if source_history.exists():
+                    source_history.rename(target_history)
+            except OSError:
+                target.rename(source)
+                self.send_text(500, "Failed to rename file history")
+                return
+            metadata = file_metadata(target)
+        response = json.dumps(metadata).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("ETag", f'"{current_revision}"')
         self.send_header("Content-Length", str(len(response)))
         self.end_headers()
         self.wfile.write(response)

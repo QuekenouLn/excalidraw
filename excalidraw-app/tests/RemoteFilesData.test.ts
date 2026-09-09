@@ -1,8 +1,10 @@
 import {
   fetchRemoteFileRevisionBlob,
+  getRenamedRemoteFileState,
   listRemoteFileHistory,
   loadRemoteFileRevision,
   openRemoteFile,
+  renameRemoteFile,
   RemoteFileRequestError,
   restoreRemoteFileRevision,
   saveRemoteFile,
@@ -33,6 +35,84 @@ describe("Remote files data layer", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("renames a remote file with revision protection", async () => {
+    const renamed = {
+      name: "Renamed plan.excalidraw",
+      size: 42,
+      updatedAt: "2026-08-22T10:00:00Z",
+      revision: "current-revision",
+    };
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(Response.json(renamed));
+
+    await expect(
+      renameRemoteFile(
+        "Team plan.excalidraw",
+        "Renamed plan.excalidraw",
+        "current-revision",
+      ),
+    ).resolves.toEqual(renamed);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/files/Team%20plan.excalidraw",
+      {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "If-Match": "current-revision",
+        },
+        body: JSON.stringify({ name: "Renamed plan.excalidraw" }),
+      },
+    );
+  });
+
+  it("updates only matching active-file identity and preserves dirty state", () => {
+    const renamed = {
+      name: "Renamed plan.excalidraw",
+      size: 42,
+      updatedAt: "2026-08-22T10:00:00Z",
+      revision: "new-revision",
+    };
+    expect(
+      getRenamedRemoteFileState(
+        "Team plan.excalidraw",
+        "old-revision",
+        true,
+        "Team plan.excalidraw",
+        renamed,
+      ),
+    ).toEqual({
+      activeName: renamed.name,
+      activeRevision: renamed.revision,
+      dirty: true,
+    });
+    expect(
+      getRenamedRemoteFileState(
+        "Other plan.excalidraw",
+        "other-revision",
+        false,
+        "Team plan.excalidraw",
+        renamed,
+      ),
+    ).toEqual({
+      activeName: "Other plan.excalidraw",
+      activeRevision: "other-revision",
+      dirty: false,
+    });
+  });
+
+  it("preserves rename conflict errors", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("Target file already exists", { status: 409 }),
+    );
+    await expect(
+      renameRemoteFile("Team plan.excalidraw", "Taken.excalidraw", "revision"),
+    ).rejects.toMatchObject({
+      status: 409,
+      message: "Target file already exists",
+    });
   });
 
   it("lists archived revisions using the history view model", async () => {
@@ -315,7 +395,11 @@ describe("Remote files data layer", () => {
       history: { clear: vi.fn() },
     } as any;
 
-    await saveRemoteFile("Eval 系统答辩知识导图.excalidraw", excalidrawAPI, null);
+    await saveRemoteFile(
+      "Eval 系统答辩知识导图.excalidraw",
+      excalidrawAPI,
+      null,
+    );
     await openRemoteFile("Eval 系统答辩知识导图.excalidraw", excalidrawAPI);
 
     expect(savedDocument.elements).toEqual(elements);
