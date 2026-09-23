@@ -1,0 +1,12 @@
+#!/bin/sh
+# Development entry. Installation will pin the discovered Bun path in stage 3.
+set -eu
+cli_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+if command -v bun >/dev/null 2>&1; then
+  exec bun "$cli_dir/dist/cli.js" "$@"
+fi
+if [ -x "$HOME/.bun/bin/bun" ]; then
+  exec "$HOME/.bun/bin/bun" "$cli_dir/dist/cli.js" "$@"
+fi
+printf '%s\n' 'Bun is required to run excalidraw-agent-cli.' >&2
+exit 1

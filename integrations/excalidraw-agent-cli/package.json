@@ -1,0 +1,22 @@
+{
+  "name": "excalidraw-agent-cli",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.3.14",
+  "bin": {
+    "excalidraw-agent-cli": "./bin/excalidraw-agent-cli"
+  },
+  "scripts": {
+    "build": "bun build src/main.ts --target=bun --outfile=dist/cli.js && bun build scripts/install.ts --target=bun --outfile=dist/install.js && bun build scripts/install-skill.ts --target=bun --outfile=dist/install-skill.js",
+    "typecheck": "tsc --noEmit",
+    "test": "bun run build && bun test"
+  },
+  "dependencies": {
+    "mcporter": "0.13.13"
+  },
+  "devDependencies": {
+    "@types/bun": "1.3.14",
+    "typescript": "5.9.3"
+  }
+}
