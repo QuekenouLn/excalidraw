@@ -81,16 +81,15 @@ describe("convertElementsForStorage", () => {
       mode: "orbit",
       fixedPoint: [0, 0.5001],
     });
-    expect(arrow).toMatchObject({
-      x: 200.5,
-      y: 40,
-      points: [
-        [0, 0],
-        [199, 0],
-      ],
-      roundness: { type: 2 },
-      moveMidPointsWithElement: false,
-    });
+    expect(arrow.elbowed).toBe(true);
+    expect(arrow.roundness).toBeNull();
+    expect(arrow.moveMidPointsWithElement).toBe(false);
+    expect(arrow.points).toEqual([
+      [0, 0],
+      [200, 0],
+    ]);
+    expect(arrow.x).toBeCloseTo(200);
+    expect(arrow.y).toBeCloseTo(40, 1);
     expect(source.boundElements).toEqual(
       expect.arrayContaining([
         { id: sourceLabel.id, type: "text" },
@@ -121,10 +120,12 @@ describe("convertElementsForStorage", () => {
         width: 100,
         height: 0,
         roundness: null,
+        elbowed: false,
       },
     ]);
 
     expect(arrow.roundness).toBeNull();
+    expect(arrow.elbowed).toBe(false);
   });
 
   it("measures CJK labels at full-width and keeps them centered", () => {
@@ -406,7 +407,8 @@ describe("convertElementsForStorage", () => {
     });
     expect(arrow).toMatchObject({
       strokeWidth: 1,
-      roundness: { type: 2, value: 0.1 },
+      elbowed: true,
+      roundness: null,
     });
     expect(label.fontFamily).toBe(11);
   });
