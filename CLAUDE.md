@@ -24,6 +24,11 @@ yarn test:update     # Run all tests (with snapshot updates)
 yarn fix             # Auto-fix formatting and linting issues
 ```
 
+## Service Operations
+
+- Use the existing Docker Compose MCP service on port `3002` for deployment.
+- Do not start additional services, temporary server processes, or alternate listening ports without the user's explicit approval. This also applies to verification workflows; use the existing service and in-process tests unless a separate service has been approved.
+
 ## Architecture Notes
 
 ### Package System
