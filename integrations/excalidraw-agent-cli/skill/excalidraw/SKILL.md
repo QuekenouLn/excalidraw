@@ -48,12 +48,13 @@ printf '%s\n' '{}' | excalidraw-agent-cli call list_remote_files --input -
 | 目标 | 路径 |
 |---|---|
 | 新图 | `read_me`（本次首次创建前只读一次）→ `create_view` |
-| 编辑已有图 | `open_remote_file` → 查询当前场景 → `apply_scene_operations` |
+| 编辑单个节点 / 线头 / 卡片 | `open_remote_file` → `select_scene_elements`（按 ID）→ `edit_scene_element` |
+| 批量连线与标签操作 | `open_remote_file` → 按目标选择 → `apply_scene_operations` |
 | Markdown | `create_markdown_frame`，或先 `get_markdown_frame` 再 `update_markdown_frame` |
 | 长期保存 | `save_remote_file` → `open_remote_file` → 查询核对 |
 | 结构检查 | `query_scene_graph`，必要时 `read_checkpoint` |
 
-Skill 教工作流；`describe` 提供参数事实。没有明确支持的操作不能通过猜工具名或 raw 字段赋值模拟。例如当前原子编辑只有添加边/修改标签，没有移动节点动作；需要拖动时明确交给画布用户，或说明该操作尚不受 CLI 工具支持。
+Skill 教工作流；`describe` 提供参数事实。局部编辑优先 `edit_scene_element`：支持节点位置、尺寸、样式和标签，箭头样式与线头，以及 Markdown Frame 转普通卡片。默认仅目标及其绑定文字可变化；连带修改其他元素会整笔失败，必须显式列入 `allowedElementIds` 才可提交。不要用 `create_view` 重建整图来修改一个元素，不要为局部编辑查询完整场景。
 
 ## 状态与版本
 

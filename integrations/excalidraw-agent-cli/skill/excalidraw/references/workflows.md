@@ -23,16 +23,32 @@ Path("create-request.json").write_text(json.dumps(request, ensure_ascii=False))
 
 然后通过 `excalidraw-agent-cli call create_view --input create-request.json` 执行业务请求。此脚本不创建或修改 `.excalidraw` 文件。
 
-## 原子编辑
+## 单元素原子编辑
 
-1. 在当前 checkpoint 上调用 `query_scene_graph`（或相应选择工具）。
-2. 使用返回的 **场景 revision** 作为原子编辑的 `expectedRevision`，不是远程文件 revision。
-3. 节点/边预期值应从当前查询读取 `id`、`version`、`versionNonce`，不能凭记忆填写。
-4. `apply_scene_operations` 成功后记录新 checkpoint/revision，检查直接变更和派生 diff。
-5. 再查询，确认标签、连线方向、两端 binding 及反向引用。必要时 `read_checkpoint` 核对几何字段。
-6. 用文件的最新 **远程 revision** 保存，再次打开核对。
+1. `open_remote_file` 获取 checkpoint；用 `select_scene_elements` 的 `id` 或少量 `ids` 只返回目标，取场景 revision 和元素 version/versionNonce。不要默认 `query_scene_graph` 或 `read_checkpoint` 全图读取。
+2. `describe edit_scene_element` 后，只提交目标 ID 与需要改变的字段：`changes` 修改节点位置/尺寸/样式或箭头线头，`text` 修改绑定标签，`replaceWithCard` 将 Markdown Frame 转为普通卡片。
+3. 默认允许目标及其绑定文字变化。移动或改标签若会刷新连接箭头，会以 `INVARIANT_VIOLATION` 失败且不创建 checkpoint。只有用户允许的连带元素才加入 `allowedElementIds`。不要为通过检查扩大到整张图。
+4. 卡片替换传 `replaceWithCard: {text, styleFrom: {id, version, versionNonce}}`，只需读取目标和参考卡片。保留目标 ID、位置、尺寸、层级，创建原生绑定文字；文本放不下时报错，不自动放大卡片。
+5. 检查成功结果的 `affectedElementIds` 和字段 diff，用最新远程 revision 保存。重新打开后按目标 ID 查询验证即可，不再全图回读。
 
-原子工具缺少移动节点操作时，不直接改 x/y 来声称验证了原生拖动绑定。当前实现可以改标签并检查服务端几何刷新；画布用户负责实际拖动验收。
+请求示例（版本必须来自实际选择结果）：
+
+```json
+{
+  "checkpointId": "CURRENT_CHECKPOINT",
+  "expectedRevision": "CURRENT_SCENE_REVISION",
+  "target": {"id": "ARROW_ID", "version": 7, "versionNonce": 123},
+  "changes": {"endArrowhead": "triangle"}
+}
+```
+
+```bash
+excalidraw-agent-cli call edit_scene_element --input one-element.json
+```
+
+## 批量原子编辑
+
+添加边、改变箭头类型或多个标签用 `apply_scene_operations`。先按目标选择版本，不必查询完整图；需要严格范围时传 `allowedElementIds`（包含目标和允许变化的绑定文字 / 箭头）。成功后检查 diff，再保存和按目标回读。缺少支持的字段时报告能力缺口，不绕过检查点并发保护。
 
 ## Markdown Frame
 
