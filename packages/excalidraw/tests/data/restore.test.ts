@@ -43,6 +43,12 @@ describe("restoreElements", () => {
     expect(restoredElements.length).toBe(elements.length);
   });
 
+  it("preserves a borderless element's zero stroke width on import", () => {
+    const element = API.createElement({ type: "rectangle", strokeWidth: 0 });
+    const [restored] = restore.restoreElements([element], null);
+    expect(restored.strokeWidth).toBe(0);
+  });
+
   it("when imported data state is null it should return an empty array of elements", () => {
     const restoredElements = restore.restoreElements(null, null);
     expect(restoredElements.length).toBe(0);

@@ -127,23 +127,29 @@ describe("Remote files", () => {
     return onRestore;
   };
 
-  it("places History between Copy and Delete", async () => {
-    await renderSidebar();
-
-    const item = screen
-      .getByRole("button", { name: "Architecture.excalidraw" })
-      .closest(".remote-files-item")!;
-    const actions = Array.from(item.querySelectorAll("button")).map(
-      (button) => button.textContent,
+  const selectFileAction = (name: string) => {
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Actions for Architecture.excalidraw",
+      }),
     );
+    fireEvent.click(screen.getByRole("menuitem", { name }));
+  };
 
-    expect(actions).toEqual([
-      "Architecture.excalidraw",
-      "Copy",
-      "Rename",
-      "History",
-      "Delete",
-    ]);
+  it("keeps actions in a dropdown and closes it after copying", async () => {
+    await renderSidebar();
+    expect(screen.queryByRole("menuitem")).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Actions for Architecture.excalidraw",
+      }),
+    );
+    expect(
+      screen.getAllByRole("menuitem").map((item) => item.textContent),
+    ).toEqual(["Copy filename", "Rename", "History", "Delete"]);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Copy filename" }));
+    expect(copyTextToSystemClipboard).toHaveBeenCalledWith(files[0].name);
+    expect(screen.queryByRole("menuitem")).not.toBeInTheDocument();
   });
 
   it("renames with Enter and reports the active file update", async () => {
@@ -152,7 +158,7 @@ describe("Remote files", () => {
     remoteFileMocks.renameRemoteFile.mockResolvedValue(renamed);
     await renderSidebar(undefined, true, undefined, onRename);
 
-    fireEvent.click(screen.getAllByRole("button", { name: "Rename" })[0]);
+    selectFileAction("Rename");
     const input = screen.getByRole("textbox", {
       name: "Rename Architecture.excalidraw",
     });
@@ -174,7 +180,7 @@ describe("Remote files", () => {
 
   it("cancels rename with Escape", async () => {
     await renderSidebar();
-    fireEvent.click(screen.getAllByRole("button", { name: "Rename" })[0]);
+    selectFileAction("Rename");
     const input = screen.getByRole("textbox", {
       name: "Rename Architecture.excalidraw",
     });
@@ -191,7 +197,7 @@ describe("Remote files", () => {
       new Error("Already exists"),
     );
     await renderSidebar();
-    fireEvent.click(screen.getAllByRole("button", { name: "Rename" })[0]);
+    selectFileAction("Rename");
     const input = screen.getByRole("textbox", {
       name: "Rename Architecture.excalidraw",
     });
@@ -228,7 +234,7 @@ describe("Remote files", () => {
     );
     await renderSidebar();
 
-    fireEvent.click(screen.getAllByRole("button", { name: "History" })[0]);
+    selectFileAction("History");
 
     expect(screen.getByText("File history")).toBeInTheDocument();
     expect(screen.getByText("Loading file history…")).toBeInTheDocument();
@@ -246,7 +252,7 @@ describe("Remote files", () => {
     );
     await renderSidebar();
 
-    fireEvent.click(screen.getAllByRole("button", { name: "History" })[0]);
+    selectFileAction("History");
 
     await waitFor(() =>
       expect(screen.getByText("History unavailable")).toBeInTheDocument(),
@@ -270,7 +276,7 @@ describe("Remote files", () => {
     ]);
     await renderSidebar();
 
-    fireEvent.click(screen.getAllByRole("button", { name: "History" })[0]);
+    selectFileAction("History");
 
     await waitFor(() =>
       expect(screen.getAllByRole("button", { name: "Restore" })).toHaveLength(
@@ -303,7 +309,7 @@ describe("Remote files", () => {
       .mockResolvedValueOnce(oldPreview);
     await renderSidebar();
 
-    fireEvent.click(screen.getAllByRole("button", { name: "History" })[0]);
+    selectFileAction("History");
     await waitFor(() =>
       expect(
         screen.getByRole("button", { name: "Preview current version" }),
@@ -359,7 +365,7 @@ describe("Remote files", () => {
     );
     await renderSidebar();
 
-    fireEvent.click(screen.getAllByRole("button", { name: "History" })[0]);
+    selectFileAction("History");
     await waitFor(() =>
       expect(
         screen.getByRole("button", { name: "Preview current version" }),
@@ -383,7 +389,7 @@ describe("Remote files", () => {
     );
     await renderSidebar();
 
-    fireEvent.click(screen.getAllByRole("button", { name: "History" })[0]);
+    selectFileAction("History");
     await waitFor(() =>
       expect(
         screen.getByRole("button", { name: "Preview current version" }),
@@ -409,7 +415,7 @@ describe("Remote files", () => {
     ]);
     await renderSidebar(vi.fn().mockResolvedValue(undefined), true);
 
-    fireEvent.click(screen.getAllByRole("button", { name: "History" })[0]);
+    selectFileAction("History");
     await waitFor(() => screen.getByRole("button", { name: "Restore" }));
     fireEvent.click(screen.getByRole("button", { name: "Restore" }));
 
@@ -442,7 +448,7 @@ describe("Remote files", () => {
       ]);
     await renderSidebar(onRestore);
 
-    fireEvent.click(screen.getAllByRole("button", { name: "History" })[0]);
+    selectFileAction("History");
     await waitFor(() =>
       expect(
         screen.getByRole("button", { name: "Restore" }),
@@ -485,7 +491,7 @@ describe("Remote files", () => {
     );
     await renderSidebar();
 
-    fireEvent.click(screen.getAllByRole("button", { name: "History" })[0]);
+    selectFileAction("History");
     await waitFor(() => screen.getByRole("button", { name: "Restore" }));
     fireEvent.click(screen.getByRole("button", { name: "Restore" }));
     fireEvent.click(screen.getAllByRole("button", { name: "Restore" })[1]);

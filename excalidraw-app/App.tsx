@@ -901,9 +901,8 @@ const ExcalidrawWrapper = () => {
 
   const handleOpenRemoteFile = useCallback(
     (name: string) => {
-      if (name === activeRemoteFile) {
-        return;
-      }
+      // Reopening the active file must fetch the latest remote revision too.
+      // Keep the unsaved-change guard for both reloads and file switches.
       if (activeRemoteFile && remoteFileDirty) {
         setPendingRemoteFile(name);
         return;

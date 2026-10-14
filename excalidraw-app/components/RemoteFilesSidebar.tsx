@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import ConfirmDialog from "@excalidraw/excalidraw/components/ConfirmDialog";
 import { Dialog } from "@excalidraw/excalidraw/components/Dialog";
 import { TextField } from "@excalidraw/excalidraw/components/TextField";
+import DropdownMenu from "@excalidraw/excalidraw/components/dropdownMenu/DropdownMenu";
 import { copyTextToSystemClipboard } from "@excalidraw/excalidraw/clipboard";
 
 import {
@@ -71,6 +72,7 @@ export const RemoteFilesSidebar = ({
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [menuFile, setMenuFile] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<RemoteFile | null>(null);
   const [historyFile, setHistoryFile] = useState<RemoteFile | null>(null);
   const [historyEntries, setHistoryEntries] = useState<FileHistoryEntry[]>([]);
@@ -308,13 +310,28 @@ export const RemoteFilesSidebar = ({
         <div>
           <strong>Remote files</strong>
           {activeFile && (
-            <div className="remote-files-sidebar__active">
+            <div className="remote-files-sidebar__active" title={activeFile}>
               {activeFile}
               {isDirty ? " · Unsaved" : ""}
             </div>
           )}
         </div>
-        <button onClick={refresh}>Refresh</button>
+        <button
+          disabled={loading}
+          onClick={() => {
+            refresh();
+            if (activeFile) {
+              onOpen(activeFile);
+            }
+          }}
+          title={
+            activeFile
+              ? "Refresh files and reload the current canvas"
+              : "Refresh files"
+          }
+        >
+          Refresh
+        </button>
       </div>
       {files.length > 0 && (
         <TextField
@@ -385,33 +402,56 @@ export const RemoteFilesSidebar = ({
             ) : (
               <button
                 className="remote-files-name"
+                title={file.name}
                 onClick={() => onOpen(file.name)}
               >
                 {file.name}
               </button>
             )}
-            <span>{new Date(file.updatedAt).toLocaleString()}</span>
-            <button
-              type="button"
-              aria-label={`Copy filename ${file.name}`}
-              title="Copy filename"
-              onClick={() => copyFilename(file.name)}
-            >
-              Copy
-            </button>
-            <button type="button" onClick={() => startRename(file)}>
-              Rename
-            </button>
-            <button type="button" onClick={() => openHistory(file)}>
-              History
-            </button>
-            <button
-              type="button"
-              className="remote-files-delete"
-              onClick={() => setPendingDelete(file)}
-            >
-              Delete
-            </button>
+            <time className="remote-files-date" dateTime={file.updatedAt}>
+              {new Date(file.updatedAt).toLocaleString()}
+            </time>
+            {editingFile?.name !== file.name && (
+              <div className="remote-files-actions">
+                <DropdownMenu open={menuFile === file.name}>
+                  <DropdownMenu.Trigger
+                    className="remote-files-actions-trigger"
+                    aria-label={`Actions for ${file.name}`}
+                    title="File actions"
+                    onToggle={() =>
+                      setMenuFile((current) =>
+                        current === file.name ? null : file.name,
+                      )
+                    }
+                  >
+                    <span aria-hidden="true">⋯</span>
+                  </DropdownMenu.Trigger>
+                  <DropdownMenu.Content
+                    className="remote-files-actions-menu"
+                    align="end"
+                    onClickOutside={() => setMenuFile(null)}
+                    onSelect={() => setMenuFile(null)}
+                  >
+                    <DropdownMenu.Item onSelect={() => copyFilename(file.name)}>
+                      Copy filename
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item onSelect={() => startRename(file)}>
+                      Rename
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item onSelect={() => openHistory(file)}>
+                      History
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Separator />
+                    <DropdownMenu.Item
+                      className="remote-files-delete"
+                      onSelect={() => setPendingDelete(file)}
+                    >
+                      Delete
+                    </DropdownMenu.Item>
+                  </DropdownMenu.Content>
+                </DropdownMenu>
+              </div>
+            )}
           </div>
         ))}
       </div>

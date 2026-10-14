@@ -107,6 +107,7 @@
     display: flex;
     flex: 1 1 auto;
     min-height: 0;
+    min-width: 0;
     flex-direction: column;
     padding: 0.75rem;
   }
@@ -120,7 +121,12 @@
     padding-bottom: 0.75rem;
     border-bottom: 1px solid var(--default-border-color);
 
+    > div {
+      min-width: 0;
+    }
+
     button {
+      flex-shrink: 0;
       border: 0;
       border-radius: var(--border-radius-md);
       padding: 0.4rem 0.6rem;
@@ -156,10 +162,11 @@
   .remote-files-rename {
     display: grid;
     grid-column: 1 / -1;
-    grid-template-columns: 1fr auto auto;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 0.4rem;
 
     input {
+      grid-column: 1 / -1;
       min-width: 0;
       border: 1px solid var(--default-border-color);
       border-radius: var(--border-radius-md);
