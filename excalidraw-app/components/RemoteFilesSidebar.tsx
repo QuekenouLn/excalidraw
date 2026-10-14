@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { useExcalidrawSetAppState } from "@excalidraw/excalidraw/components/App";
 import ConfirmDialog from "@excalidraw/excalidraw/components/ConfirmDialog";
 import { Dialog } from "@excalidraw/excalidraw/components/Dialog";
 import { TextField } from "@excalidraw/excalidraw/components/TextField";
@@ -68,6 +69,7 @@ export const RemoteFilesSidebar = ({
   onRestore: (name: string, revision: string) => Promise<void>;
   revision: number;
 }) => {
+  const setAppState = useExcalidrawSetAppState();
   const [files, setFiles] = useState<RemoteFile[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -176,14 +178,18 @@ export const RemoteFilesSidebar = ({
     }
   }, [onDelete, pendingDelete]);
 
-  const copyFilename = useCallback(async (name: string) => {
-    try {
-      await copyRemoteFilename(name);
-      setError("");
-    } catch (error: any) {
-      setError(error.message);
-    }
-  }, []);
+  const copyFilename = useCallback(
+    async (name: string) => {
+      try {
+        await copyRemoteFilename(name);
+        setError("");
+        setAppState({ toast: { message: "Filename copied" } });
+      } catch (error: any) {
+        setError(error.message);
+      }
+    },
+    [setAppState],
+  );
 
   const startRename = useCallback((file: RemoteFile) => {
     setEditingFile(file);
@@ -310,9 +316,17 @@ export const RemoteFilesSidebar = ({
         <div>
           <strong>Remote files</strong>
           {activeFile && (
-            <div className="remote-files-sidebar__active" title={activeFile}>
-              {activeFile}
-              {isDirty ? " · Unsaved" : ""}
+            <div className="remote-files-sidebar__active">
+              <button
+                type="button"
+                className="remote-files-sidebar__copy-name"
+                title={`Click to copy: ${activeFile}`}
+                aria-label={`Copy filename ${activeFile}`}
+                onClick={() => copyFilename(activeFile)}
+              >
+                {activeFile}
+              </button>
+              {isDirty && <span> · Unsaved</span>}
             </div>
           )}
         </div>

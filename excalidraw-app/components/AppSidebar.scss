@@ -137,13 +137,33 @@
   }
 
   .remote-files-sidebar__active {
+    display: flex;
+    align-items: baseline;
     max-width: 13rem;
     margin-top: 0.25rem;
-    overflow: hidden;
     color: var(--color-primary);
     font-size: 0.75rem;
+    white-space: nowrap;
+
+    span {
+      flex-shrink: 0;
+    }
+  }
+
+  .remote-files-sidebar__header .remote-files-sidebar__copy-name {
+    flex-shrink: 1;
+    min-width: 0;
+    padding: 0;
+    background: transparent;
+    font: inherit;
+    text-align: left;
+    overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+
+    &:hover {
+      text-decoration: underline;
+    }
   }
 
   .remote-files-search {
