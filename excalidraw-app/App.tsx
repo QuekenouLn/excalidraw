@@ -123,6 +123,11 @@ import {
   importUsernameFromLocalStorage,
 } from "./data/localStorage";
 
+import {
+  getRemoteSceneSignature,
+  restoreRemoteFileSession,
+  saveRemoteFileSession,
+} from "./data/remoteFileSession";
 import { loadFilesFromFirebase } from "./data/firebase";
 import {
   LibraryIndexedDBAdapter,
@@ -581,6 +586,15 @@ const ExcalidrawWrapper = () => {
     }
 
     initializeScene({ collabAPI, excalidrawAPI }).then(async (data) => {
+      if (!data.isExternalScene && data.scene) {
+        const session = restoreRemoteFileSession(data.scene);
+        if (session) {
+          setActiveRemoteFile(session.name);
+          setActiveRemoteRevision(session.revision);
+          savedSceneSignatureRef.current = session.savedSignature;
+          setRemoteFileDirty(session.sceneSignature !== session.savedSignature);
+        }
+      }
       loadImages(data, /* isInitialLoad */ true);
       initialStatePromiseRef.current.promise.resolve(data.scene);
     });
@@ -598,6 +612,12 @@ const ExcalidrawWrapper = () => {
         excalidrawAPI.updateScene({ appState: { isLoading: true } });
 
         initializeScene({ collabAPI, excalidrawAPI }).then((data) => {
+          if (data.isExternalScene) {
+            setActiveRemoteFile(null);
+            setActiveRemoteRevision(null);
+            savedSceneSignatureRef.current = null;
+            saveRemoteFileSession(null);
+          }
           loadImages(data);
           if (data.scene) {
             excalidrawAPI.updateScene({
@@ -708,6 +728,22 @@ const ExcalidrawWrapper = () => {
   useEffect(() => {
     const unloadHandler = (event: BeforeUnloadEvent) => {
       LocalData.flushSave();
+      saveRemoteFileSession(
+        excalidrawAPI &&
+          activeRemoteFile &&
+          savedSceneSignatureRef.current &&
+          !collabAPI?.isCollaborating()
+          ? {
+              name: activeRemoteFile,
+              revision: activeRemoteRevision,
+              sceneSignature: getRemoteSceneSignature({
+                elements: excalidrawAPI.getSceneElementsIncludingDeleted(),
+                appState: excalidrawAPI.getAppState(),
+              }),
+              savedSignature: savedSceneSignatureRef.current,
+            }
+          : null,
+      );
 
       if (
         excalidrawAPI &&
@@ -728,22 +764,14 @@ const ExcalidrawWrapper = () => {
     return () => {
       window.removeEventListener(EVENT.BEFORE_UNLOAD, unloadHandler);
     };
-  }, [excalidrawAPI]);
+  }, [excalidrawAPI, activeRemoteFile, activeRemoteRevision, collabAPI]);
 
   const onChange = (
     elements: readonly OrderedExcalidrawElement[],
     appState: AppState,
     files: BinaryFiles,
   ) => {
-    const sceneSignature = JSON.stringify({
-      elements: elements.map(({ id, version, versionNonce, isDeleted }) => ({
-        id,
-        version,
-        versionNonce,
-        isDeleted,
-      })),
-      viewBackgroundColor: appState.viewBackgroundColor,
-    });
+    const sceneSignature = getRemoteSceneSignature({ elements, appState });
     if (savedSceneSignatureRef.current === null) {
       savedSceneSignatureRef.current = sceneSignature;
     } else {
@@ -867,16 +895,9 @@ const ExcalidrawWrapper = () => {
     if (!excalidrawAPI) {
       return;
     }
-    savedSceneSignatureRef.current = JSON.stringify({
-      elements: excalidrawAPI
-        .getSceneElementsIncludingDeleted()
-        .map(({ id, version, versionNonce, isDeleted }) => ({
-          id,
-          version,
-          versionNonce,
-          isDeleted,
-        })),
-      viewBackgroundColor: excalidrawAPI.getAppState().viewBackgroundColor,
+    savedSceneSignatureRef.current = getRemoteSceneSignature({
+      elements: excalidrawAPI.getSceneElementsIncludingDeleted(),
+      appState: excalidrawAPI.getAppState(),
     });
     setRemoteFileDirty(false);
   }, [excalidrawAPI]);

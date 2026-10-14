@@ -28,6 +28,8 @@ const filename = "reload-regression.excalidraw";
 describe("reopening the active remote file", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    sessionStorage.clear();
+    localStorage.clear();
     mocks.listRemoteFiles.mockResolvedValue([
       {
         name: filename,
@@ -43,6 +45,45 @@ describe("reopening the active remote file", () => {
   afterEach(() => {
     unmountComponent();
   });
+
+  it.each([false, true])(
+    "retains the remote association across reload (dirty=%s)",
+    async (dirty) => {
+      await openFile();
+      if (dirty) {
+        await act(async () => {
+          API.updateScene({
+            elements: [API.createElement({ type: "rectangle" })],
+          });
+        });
+      }
+      const originalElements = window.h.state.isLoading
+        ? []
+        : window.h.elements;
+      fireEvent(window, new Event("beforeunload"));
+      unmountComponent();
+      await render(<ExcalidrawApp />);
+      await waitFor(() => expect(window.h.state.isLoading).toBe(false));
+      if (
+        !screen.queryByRole("button", { name: `Copy filename ${filename}` })
+      ) {
+        fireEvent.click(screen.getByRole("button", { name: "Remote files" }));
+      }
+      await screen.findByRole("button", { name: `Copy filename ${filename}` });
+      expect(window.h.elements.map((element) => element.id)).toEqual(
+        originalElements.map((element) => element.id),
+      );
+      expect(mocks.openRemoteFile).toHaveBeenCalledTimes(1);
+      if (dirty) {
+        expect(screen.getByText(/· Unsaved/)).toBeInTheDocument();
+        fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+        await screen.findByRole("heading", { name: "Unsaved changes" });
+        expect(mocks.openRemoteFile).toHaveBeenCalledTimes(1);
+      } else {
+        expect(screen.queryByText(/· Unsaved/)).not.toBeInTheDocument();
+      }
+    },
+  );
 
   const openFile = async () => {
     await render(<ExcalidrawApp />);
